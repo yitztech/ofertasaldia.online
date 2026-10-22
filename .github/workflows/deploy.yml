@@ -1,0 +1,224 @@
+# Verifica cada cambio y, en main, publica las imágenes en GHCR y despliega en Coolify.
+#
+#   verificar (PR y main) → publicar (gateway y web) → desplegar (webhook de Coolify) → comprobar
+#
+# `Verificar` es el check que exige la regla de main: Dockerfiles, reglas del compose,
+# prueba de humo con las imágenes que se van a publicar y análisis de vulnerabilidades.
+# El entorno `production` (secretos COOLIFY_WEBHOOK y COOLIFY_TOKEN, variable SITE_URL)
+# lo rellena el alta del cliente (infra-ionos-vps, playbook cliente-alta). Mientras no
+# exista, se publican las imágenes pero no se despliega.
+# En el repo de la plantilla solo se verifica: no se publica nada.
+name: Desplegar
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+  # Sin paths-ignore: el check es obligatorio y un PR solo de documentación también lo necesita
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Un PR nuevo cancela la verificación anterior del mismo PR; en main no se cancela nada
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Imágenes locales de la verificación (no salen del runner)
+  IMAGE_PREFIX: local/ci
+  IMAGE_TAG: ci
+  # Variables obligatorias del compose (`:?`), con valores de prueba. Añadir aquí las que
+  # añada la app (p. ej. POSTGRES_PASSWORD: ci).
+  TRUSTED_PROXY_CIDR: 127.0.0.1/32
+
+jobs:
+  verificar:
+    name: Verificar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Acciones de terceros fijadas por commit (la etiqueta se puede mover)
+      - name: Dockerfile del gateway
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: gateway/Dockerfile
+      - name: Dockerfile de web
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: web/Dockerfile
+
+      - name: Reglas del compose
+        run: .github/scripts/reglas-compose.sh compose.prod.yml
+
+      - uses: docker/setup-buildx-action@v4
+      # Mismas cachés que `publicar`: allí la build sale casi entera de la caché
+      - name: Construir gateway
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: gateway/Dockerfile
+          load: true
+          build-args: |
+            RELEASE_SHA=${{ github.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}-gateway:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=gateway
+          cache-to: type=gha,mode=max,scope=gateway
+      - name: Construir web
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: web/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-web:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # El compose de producción, tal cual (solo lectura, sin root), con las imágenes recién construidas
+      - name: Prueba de humo
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          docker compose -f compose.prod.yml up -d --wait --wait-timeout 120
+          gw() { docker compose -f compose.prod.yml exec -T gateway "$@"; }
+
+          [ "$(gw wget -qO- http://127.0.0.1/healthz)" = "ok" ]
+          revision=$(gw wget -qO- http://127.0.0.1/version.json | jq -r .revision)
+          [ "$revision" = "$EXPECTED_SHA" ] || { echo "::error::/version.json sirve $revision"; exit 1; }
+
+          cabeceras=$(gw wget -qS -O /dev/null http://127.0.0.1/ 2>&1)
+          for c in Content-Security-Policy Strict-Transport-Security X-Content-Type-Options X-Frame-Options Referrer-Policy; do
+            printf '%s\n' "$cabeceras" | grep -qi "^ *$c:" || { echo "::error::Falta la cabecera $c"; exit 1; }
+          done
+
+          for s in $(docker compose -f compose.prod.yml ps --services); do
+            [ "$(docker compose -f compose.prod.yml exec -T "$s" id -u)" != "0" ] || { echo "::error::$s corre como root"; exit 1; }
+          done
+          echo "Humo correcto: $revision"
+
+      - name: Logs de la prueba
+        if: always()
+        run: docker compose -f compose.prod.yml logs --no-color; docker compose -f compose.prod.yml down -v
+
+      # Falla con vulnerabilidades CRITICAL o HIGH que ya tengan arreglo
+      - name: Vulnerabilidades de gateway
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.0
+          image-ref: ${{ env.IMAGE_PREFIX }}-gateway:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Vulnerabilidades de web
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.0
+          image-ref: ${{ env.IMAGE_PREFIX }}-web:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+  publicar:
+    name: Publicar ${{ matrix.name }}
+    needs: verificar
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: gateway
+            file: gateway/Dockerfile
+            build_args: |
+              RELEASE_SHA=${{ github.sha }}
+          - name: web
+            file: web/Dockerfile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # GHCR exige minúsculas en el nombre de la imagen
+      - id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: true
+          build-args: ${{ matrix.build_args }}
+          tags: |
+            ${{ steps.image.outputs.name }}:main
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          provenance: true
+          sbom: true
+
+  desplegar:
+    name: Desplegar en Coolify
+    needs: publicar
+    runs-on: ubuntu-latest
+    environment: production
+    # Un despliegue nunca cancela otro en curso
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: ¿Coolify está configurado?
+        id: coolify
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          if [ -n "$COOLIFY_WEBHOOK" ] && [ -n "$COOLIFY_TOKEN" ] && [ -n "$SITE_URL" ]; then
+            echo "listo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Imágenes publicadas, pero no se despliega: faltan COOLIFY_WEBHOOK, COOLIFY_TOKEN o SITE_URL en el entorno production (los pone el alta del cliente)."
+          fi
+
+      - name: Pedir el despliegue a Coolify
+        if: steps.coolify.outputs.listo == 'true'
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          # Coolify solo despliega con POST
+          curl --fail-with-body --silent --show-error --retry 3 --max-time 60 \
+            --request POST --header "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK"
+
+      # Cada redespliegue corta el sitio 1-2 minutos (Coolify para y arranca los
+      # contenedores): se espera a que /version.json sirva el commit nuevo.
+      - name: Comprobar que la versión nueva ya sirve
+        if: steps.coolify.outputs.listo == 'true'
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          for attempt in $(seq 1 60); do
+            revision=$(curl --fail --silent --max-time 10 "$SITE_URL/version.json" | jq -r '.revision' || true)
+            if [ "$revision" = "$EXPECTED_SHA" ]; then
+              echo "Desplegado: $EXPECTED_SHA"
+              exit 0
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              echo "::error::Coolify no sirvió la revisión esperada en 10 minutos."
+              exit 1
+            fi
+            sleep 10
+          done
