@@ -1,6 +1,7 @@
 # Verifica cada cambio y, en main, publica las imágenes en GHCR y despliega en Coolify.
 #
 #   verificar (PR y main) → publicar (gateway y web) → desplegar (webhook de Coolify) → comprobar
+#   verificar cada noche (cron): ZAP y Trivy con lo que haya salido desde el último cambio; no publica
 #
 # `Verificar` es el check que exige la regla de main: Dockerfiles, reglas del compose,
 # prueba de humo con las imágenes que se van a publicar y análisis de vulnerabilidades.
@@ -19,6 +20,9 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Verificación nocturna (AUDITORIA SEG-08), escalonada entre proyectos por el tope de jobs de la organización
+  schedule:
+    - cron: "20 8 * * *"
 
 # Un PR nuevo cancela la verificación anterior del mismo PR; en main no se cancela nada
 concurrency:
@@ -101,6 +105,24 @@ jobs:
           done
           echo "Humo correcto: $revision"
 
+      # ZAP pasivo contra el mismo entorno (AUDITORIA SEG-08): falla con cualquier aviso nuevo.
+      # Las excepciones, cada una con su motivo, van en tests/security/zap-reglas.tsv.
+      # Comparte la red del gateway, que no publica puertos.
+      - name: ZAP pasivo
+        timeout-minutes: 5
+        run: |
+          mkdir -p zap && cp tests/security/zap-reglas.tsv zap/ && chmod -R 777 zap
+          docker run --rm --network "container:$(docker compose -f compose.prod.yml ps -q gateway)" \
+            -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:2.17.0 \
+            zap-baseline.py -t http://127.0.0.1 -c zap-reglas.tsv -r zap.html
+      - name: Informe de ZAP
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zap
+          path: zap/zap.html
+          if-no-files-found: ignore
+
       - name: Logs de la prueba
         if: always()
         run: docker compose -f compose.prod.yml logs --no-color; docker compose -f compose.prod.yml down -v
@@ -126,7 +148,8 @@ jobs:
   publicar:
     name: Publicar ${{ matrix.name }}
     needs: verificar
-    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !github.event.repository.is_template }}
+    # Ni en un PR ni en la verificación nocturna
+    if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' && github.ref == 'refs/heads/main' && !github.event.repository.is_template }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

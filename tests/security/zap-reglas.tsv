@@ -1,0 +1,3 @@
+10049	IGNORE	(Páginas públicas cacheables a propósito)
+10055	IGNORE	(style-src 'unsafe-inline' por los <style> de las páginas e img-src https: para imágenes externas; revisarlo al cambiar la CSP)
+90004	IGNORE	(Sin COEP: bloquearía el script de Umami y los recursos de terceros; no se usa SharedArrayBuffer)
