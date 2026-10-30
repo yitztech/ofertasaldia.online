@@ -46,19 +46,19 @@ services:
       retries: 5
     networks: [frontend]
 
-  # La web del cliente. De inicio, una página estática; se sustituye por la aplicación real
-  # manteniendo el nombre del servicio, o se añaden servicios y rutas en el gateway.
+  # La web (apps/web): React Router con SSR sobre Node, en el puerto 3000 de la red del compose.
   # Variables que el alta pone a disposición del compose (añadir las que use la app):
   #   SITE_URL, SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASSWORD, MAIL_FROM,
   #   LISTMONK_URL, LISTMONK_LIST_UUID, UMAMI_SCRIPT_URL, UMAMI_WEBSITE_ID
   web:
     <<: *hardening
     image: ${IMAGE_PREFIX:?Define IMAGE_PREFIX}-web:${IMAGE_TAG:-main}
-    mem_limit: 64m
-    cpus: 0.25
+    # Node con SSR necesita más que nginx; NODE_OPTIONS fija el heap en ~75 % (web/Dockerfile)
+    mem_limit: 256m
+    cpus: 0.5
     # Cada servicio responde /healthz (sin consultar dependencias) para su healthcheck
     healthcheck:
-      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/healthz"]
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:3000/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
