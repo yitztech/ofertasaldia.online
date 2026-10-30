@@ -31,6 +31,9 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/build ./build
 
+# npm y corepack no hacen falta para ejecutar la app y traen dependencias con CVE propias
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 # Sin root; node es el usuario 1000 de la imagen oficial
 USER 1000:1000
 EXPOSE 3000
