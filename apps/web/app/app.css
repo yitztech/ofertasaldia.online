@@ -1,0 +1,136 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/instrument-sans";
+
+:root {
+  --radius: 0.625rem;
+  --background: #faf8f5;
+  --foreground: #141413;
+  --card: #ffffff;
+  --card-foreground: #141413;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-foreground: #ffffff;
+  --secondary: #f1eee8;
+  --secondary-foreground: #141413;
+  --muted-foreground: #524f49;
+  --border: #dbd6cc;
+  --input: #c9c3b8;
+  --ring: #1d4ed8;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --deal: #b45309;
+  --deal-foreground: #ffffff;
+  --success: #15803d;
+  --warning-bg: #fdf3e3;
+  --warning-fg: #7c3a06;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f1115;
+    --foreground: #f3f4f6;
+    --card: #161920;
+    --card-foreground: #f3f4f6;
+    --primary: #60a5fa;
+    --primary-hover: #93c5fd;
+    --primary-foreground: #0f1115;
+    --secondary: #1f242d;
+    --secondary-foreground: #f3f4f6;
+    --muted-foreground: #a3aab8;
+    --border: #2a303c;
+    --input: #3a4150;
+    --ring: #60a5fa;
+    --destructive: #f87171;
+    --destructive-foreground: #0f1115;
+    --deal: #f59e0b;
+    --deal-foreground: #0f1115;
+    --success: #4ade80;
+    --warning-bg: #2a2110;
+    --warning-fg: #fcd9a0;
+  }
+}
+
+@theme inline {
+  --font-sans: "Instrument Sans Variable", system-ui, -apple-system, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Instrument Sans Variable", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-deal: var(--deal);
+  --color-deal-foreground: var(--deal-foreground);
+  --color-success: var(--success);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-fg: var(--warning-fg);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-2xs: 0 1px 2px rgb(20 20 19 / 0.05);
+  --shadow-xs: 0 1px 2px rgb(20 20 19 / 0.05), 0 6px 16px -6px rgb(20 20 19 / 0.09);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility contenedor {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 78rem;
+  padding-inline: 1rem;
+
+  @media (min-width: 720px) {
+    padding-inline: 1.5rem;
+  }
+}
+
+@utility cifras {
+  font-variant-numeric: tabular-nums;
+}
