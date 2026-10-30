@@ -7,8 +7,6 @@ import {
   ScrollRestoration,
 } from "react-router";
 import type { Route } from "./+types/root";
-import { Cabecera } from "~/components/cabecera";
-import { Pie } from "~/components/pie";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -32,9 +30,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           Saltar al contenido
         </a>
-        <Cabecera />
-        <main id="contenido">{children}</main>
-        <Pie />
+        {children}
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -49,7 +45,7 @@ export default function App() {
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const noEncontrado = isRouteErrorResponse(error) && error.status === 404;
   return (
-    <div className="contenedor py-16">
+    <main id="contenido" className="contenedor py-16">
       <h1 className="m-0 text-3xl font-extrabold tracking-tight">
         {noEncontrado ? "No encontramos esta página" : "Algo salió mal"}
       </h1>
@@ -58,6 +54,6 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
           ? "Revisa la dirección o vuelve a la portada."
           : "Inténtalo de nuevo en unos minutos."}
       </p>
-    </div>
+    </main>
   );
 }
