@@ -6,7 +6,7 @@ export function Logo({ className }: { className?: string }) {
     <Link
       to="/"
       aria-label="OfertasAlDia, inicio"
-      className={cn("inline-flex min-h-11 items-center gap-2.5 rounded-xl no-underline", className)}
+      className={cn("inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-xl no-underline", className)}
     >
       <img src="/img/marca/logo.png" alt="" width={38} height={46} className="h-10 w-auto" />
       <span className="text-[1.65rem] font-extrabold leading-none tracking-tight text-foreground">

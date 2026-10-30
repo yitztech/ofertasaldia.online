@@ -48,7 +48,7 @@ export default function Registro() {
       eyebrow="Únete a nuestra comunidad"
       titulo={
         <>
-          Crea tu cuenta en <span className="texto-marca">OfertasAlDia</span>
+          Crea tu cuenta<span className="texto-marca block">en OfertasAlDia</span>
         </>
       }
       descripcion="Descubre, guarda y comparte las mejores oportunidades de Amazon y Mercado Libre."

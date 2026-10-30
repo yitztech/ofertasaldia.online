@@ -27,20 +27,20 @@ export function Cabecera({ conBuscador = true, acciones }: CabeceraProps) {
       <div className="contenedor flex min-h-16 items-center gap-3 lg:gap-6">
         <Logo />
         {conBuscador ? (
-          <Buscador id="buscar-cabecera" className="hidden w-full max-w-[22rem] xl:flex" />
+          <Buscador id="buscar-cabecera" className="hidden w-full max-w-[15rem] xl:flex 2xl:max-w-[21rem]" />
         ) : null}
         <nav aria-label="Principal" className="hidden items-center gap-1 lg:flex">
           {enlaces.map((e) => (
             <Link
               key={e.a}
               to={e.a}
-              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-foreground no-underline hover:text-primary"
+              className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-2.5 text-[0.8125rem] font-medium text-foreground no-underline hover:text-primary"
             >
               {e.texto}
             </Link>
           ))}
         </nav>
-        <div className="ml-auto hidden items-center gap-1.5 lg:flex">{acciones}</div>
+        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex">{acciones}</div>
         <Button
           variant="ghost"
           size="icon"

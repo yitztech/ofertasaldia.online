@@ -11,12 +11,12 @@ export function ListaMasVendidos({ productos }: { productos: MasVendido[] }) {
           <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
             {i + 1}
           </span>
-          <img src={p.imagen} alt="" loading="lazy" className="size-12 shrink-0 rounded-full bg-card object-contain" />
+          <img src={p.imagen} alt="" loading="lazy" className="size-10 shrink-0 rounded-full bg-card object-contain" />
           <div className="min-w-0 flex-1">
             <p className="m-0 truncate text-xs font-medium">{p.nombre}</p>
             <Plataforma id={p.plataforma} />
           </div>
-          <div className="flex shrink-0 items-center gap-2.5 cifras">
+          <div className="flex shrink-0 flex-col items-end gap-1 cifras">
             <span className="text-sm font-extrabold">{formatearMxn(p.precioCentavos)}</span>
             <Badge variant="porcentaje">
               <span aria-hidden="true">-{p.descuento}%</span>

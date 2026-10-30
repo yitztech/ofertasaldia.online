@@ -43,7 +43,7 @@ export function EnlaceAfiliado({ url }: { url: string }) {
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-h-11 min-w-0 flex-1 bg-card px-3 text-sm text-foreground focus-visible:outline-none"
+          className="min-h-11 min-w-0 flex-1 bg-card px-3 text-[0.8125rem] text-foreground focus-visible:outline-none"
         />
         <button
           type="button"

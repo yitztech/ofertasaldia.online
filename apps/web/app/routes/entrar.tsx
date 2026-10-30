@@ -37,7 +37,7 @@ export default function Entrar() {
       eyebrow="Descubre · Compara · Ahorra"
       titulo={
         <>
-          Bienvenido de <span className="texto-marca">nuevo</span>
+          Bienvenido de<span className="texto-marca block">nuevo</span>
         </>
       }
       descripcion="Inicia sesión para seguir explorando las mejores ofertas de Amazon y Mercado Libre."

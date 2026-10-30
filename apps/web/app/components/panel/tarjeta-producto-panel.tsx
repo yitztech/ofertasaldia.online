@@ -16,7 +16,7 @@ export function TarjetaProductoPanel({ producto }: { producto: ProductoPanel }) 
   const estado = estados[producto.estado];
   return (
     <article className="relative flex h-full flex-col gap-2 rounded-2xl border border-border bg-card p-3 shadow-tarjeta">
-      <div className="flex h-32 items-center justify-center">
+      <div className="flex h-36 items-center justify-center pt-6">
         <Badge variant={estado.variante} className="absolute left-3 top-3">
           {estado.texto}
         </Badge>

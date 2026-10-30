@@ -37,7 +37,7 @@ export function BannerPlataforma({ plataforma }: { plataforma: PlataformaId }) {
         className="absolute inset-y-0 right-0 -z-10 h-full w-[52%] object-cover object-right"
       />
       <div className="flex max-w-[52%] flex-col gap-1">
-        <img src={c.logo} alt="" width={c.ancho} height={c.alto} className="mb-1 h-6 w-auto self-start" />
+        <img src={c.logo} alt="" width={c.ancho} height={c.alto} className="mb-1 h-6 w-auto self-start mix-blend-multiply" />
         <h2 className="text-lg font-extrabold leading-tight">
           <Link
             to={`/?plataforma=${plataforma}#ofertas`}

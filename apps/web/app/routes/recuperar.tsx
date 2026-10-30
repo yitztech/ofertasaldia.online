@@ -29,7 +29,7 @@ export default function Recuperar() {
       eyebrow="Recupera tu acceso"
       titulo={
         <>
-          ¿Olvidaste tu <span className="texto-marca">contraseña?</span>
+          ¿Olvidaste tu<span className="texto-marca block">contraseña?</span>
         </>
       }
       descripcion="No te preocupes, te ayudamos a recuperar tu cuenta."

@@ -8,7 +8,7 @@ export function EnlaceParaAfiliados() {
   return (
     <Link
       to="/registro"
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground no-underline hover:text-primary"
+      className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[0.8125rem] font-medium text-foreground no-underline hover:text-primary"
     >
       <CrownIcon aria-hidden="true" className="size-4 fill-corona text-corona" />
       Para afiliados
@@ -20,7 +20,7 @@ export function EnlaceComoFunciona() {
   return (
     <Link
       to="/#como-funciona"
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground no-underline hover:text-primary"
+      className="inline-flex lg:hidden 2xl:inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[0.8125rem] font-medium text-foreground no-underline hover:text-primary"
     >
       <CircleHelpIcon aria-hidden="true" className="size-4" />
       Cómo funciona

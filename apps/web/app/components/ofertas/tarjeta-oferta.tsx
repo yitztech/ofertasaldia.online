@@ -44,7 +44,7 @@ export function BotonFavorito({ nombre, className }: { nombre: string; className
 
 export function Valoracion({ valor, resenas }: { valor: number; resenas: number }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
       <StarIcon aria-hidden="true" className="size-3.5 fill-estrella text-estrella" />
       <span className="sr-only">Valoración {formatearValoracion(valor)} de 5, </span>
       <span className="cifras">
@@ -64,7 +64,7 @@ interface TarjetaOfertaProps {
 export function TarjetaOferta({ oferta, boton = "marca" }: TarjetaOfertaProps) {
   return (
     <article className="relative flex h-full flex-col gap-2.5 rounded-2xl border border-border bg-card p-3 shadow-tarjeta transition-shadow hover:shadow-[0_14px_32px_-14px_rgb(110_40_170/0.32)]">
-      <div className="flex h-36 items-center justify-center">
+      <div className="flex h-36 items-center justify-center pt-6">
         <InsigniaOferta oferta={oferta} className="absolute left-3 top-3" />
         <BotonFavorito nombre={oferta.nombre} className="absolute right-2.5 top-2.5" />
         <img
@@ -80,7 +80,7 @@ export function TarjetaOferta({ oferta, boton = "marca" }: TarjetaOfertaProps) {
         <Valoracion valor={oferta.valoracion} resenas={oferta.resenas} />
       </div>
       <p className="m-0 flex flex-wrap items-baseline gap-x-2 cifras">
-        <span className="text-lg font-extrabold leading-6 text-precio">{formatearMxn(oferta.precioCentavos)}</span>
+        <span className="text-[1.0625rem] font-extrabold leading-6 text-precio">{formatearMxn(oferta.precioCentavos)}</span>
         {oferta.precioAnteriorCentavos ? (
           <del className="text-xs text-muted-foreground">
             <span className="sr-only">Precio anterior </span>

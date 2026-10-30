@@ -209,6 +209,7 @@
 
 @utility desvanecer-lateral-superior {
   mask-image:
-    linear-gradient(to right, transparent 0%, #000 28%), linear-gradient(to bottom, transparent 0%, #000 24%);
+    linear-gradient(to right, transparent 0%, #000 28%), linear-gradient(to left, transparent 0%, #000 14%),
+    linear-gradient(to bottom, transparent 0%, #000 24%);
   mask-composite: intersect;
 }

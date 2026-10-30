@@ -19,9 +19,9 @@ export function HeroMarketplace({ busqueda }: { busqueda: string }) {
         alt=""
         width={553}
         height={325}
-        className="desvanecer-izquierda absolute inset-y-0 right-0 -z-10 hidden h-full w-[60%] object-cover object-right md:block"
+        className="desvanecer-izquierda absolute inset-y-0 right-0 -z-10 hidden h-full w-[56%] object-cover object-right md:block"
       />
-      <div className="flex flex-col gap-4 p-5 sm:p-8 md:max-w-[62%] lg:p-10">
+      <div className="flex flex-col gap-4 p-5 sm:p-8 md:max-w-[56%] lg:p-10">
         <p className="m-0 text-xs font-bold uppercase tracking-[0.12em] text-primary">Descubre · Compara · Ahorra</p>
         <h1
           id="titulo-hero"

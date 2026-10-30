@@ -5,6 +5,7 @@ import { InstagramIcono, TikTokIcono, YouTubeIcono } from "~/components/comun/ic
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "~/components/ui/breadcrumb";
 import { Button } from "~/components/ui/button";
 import type { Afiliado, RedSocial } from "~/datos/tipos";
+import { cn } from "~/utils";
 import { formatearValoracion } from "~/lib/formato";
 
 const iconosRedes: Record<RedSocial, { icono: ReactNode; nombre: string }> = {
@@ -65,7 +66,7 @@ export function CabeceraAfiliado({ afiliado, variante }: CabeceraAfiliadoProps) 
         alt=""
         width={610}
         height={135}
-        className="desvanecer-esquina absolute right-0 top-0 -z-10 hidden h-[78%] w-[58%] object-cover object-left-top md:block"
+        className={cn("desvanecer-esquina absolute right-0 top-0 -z-10 hidden h-[78%] object-cover object-left-top md:block", publico ? "w-[58%]" : "w-[46%]")}
       />
       <div className="flex flex-col gap-4 p-5 sm:p-7">
         {publico ? (

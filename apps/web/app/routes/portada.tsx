@@ -131,7 +131,7 @@ export default function Portada({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_22rem] lg:gap-10">
+        <div className="grid gap-8 lg:grid-cols-[1fr_24rem] lg:gap-10">
           <section id="colecciones" aria-labelledby="titulo-colecciones" className="scroll-mt-24">
             <EncabezadoSeccion
               id="titulo-colecciones"

@@ -37,7 +37,7 @@ export default function Restablecer() {
       eyebrow="Nueva contraseña"
       titulo={
         <>
-          Crea una nueva <span className="texto-marca">contraseña</span>
+          Crea una nueva<span className="texto-marca block">contraseña</span>
         </>
       }
       descripcion="Ingresa tu nueva contraseña para continuar."

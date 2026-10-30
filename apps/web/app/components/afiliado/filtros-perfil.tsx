@@ -94,7 +94,7 @@ export function FiltrosDelPerfil({ afiliado, filtros, onCambiar }: Props) {
         </fieldset>
         <fieldset className="m-0 border-0 p-0">
           <legend className="mb-1 p-0 text-sm font-semibold">Valoración mínima</legend>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
@@ -107,7 +107,7 @@ export function FiltrosDelPerfil({ afiliado, filtros, onCambiar }: Props) {
                 <StarIcon aria-hidden="true" className={cn("size-5", n <= filtros.valoracionMinima ? "fill-estrella text-estrella" : "fill-muted text-border")} />
               </button>
             ))}
-            <span className="ml-1 text-xs text-muted-foreground">
+            <span className="w-full text-xs text-muted-foreground">
               {filtros.valoracionMinima ? `${filtros.valoracionMinima} estrellas o más` : "Sin mínimo"}
             </span>
           </div>
