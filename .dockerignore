@@ -6,3 +6,8 @@
 **/node_modules
 **/.DS_Store
 *.md
+**/build
+**/.react-router
+**/.impeccable
+.playwright-mcp
+design

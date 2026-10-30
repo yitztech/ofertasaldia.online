@@ -8,7 +8,7 @@ server_tokens off;
 # Docker cambia la IP de un contenedor cada vez que lo recrea. Con `resolve` nginx
 # vuelve a consultar el DNS interno de Docker y sigue la IP nueva sin reiniciarse.
 resolver 127.0.0.11 valid=10s ipv6=off;
-upstream web_upstream { zone web_upstream 64k; server web:80 resolve; keepalive 16; }
+upstream web_upstream { zone web_upstream 64k; server web:3000 resolve; keepalive 16; }
 
 # ── IP real del cliente ─────────────────────────────────────────────
 # Solo se confía en X-Forwarded-For si llega de la red donde está Traefik
