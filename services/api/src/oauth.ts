@@ -59,7 +59,7 @@ export class OAuthController {
   ) {
     const value = provider(requested);
     const { callback } = settings(value);
-    await this.auth.rateLimit(request, "oauth-start");
+    await this.auth.rateLimit(request);
     const { client, config } = await configuration(value);
     const state = client.randomState();
     const nonce = client.randomNonce();

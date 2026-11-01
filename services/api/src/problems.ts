@@ -52,6 +52,7 @@ export class Problems implements ExceptionFilter {
         detail:
           typeof body.detail === "string" ? body.detail : "Inténtalo de nuevo.",
         requestId,
+        ...(Array.isArray(body.errors) ? { errors: body.errors } : {}),
       });
   }
 }

@@ -20,7 +20,12 @@ const digest = (value: string) =>
 const credentials = z
   .object({ email: z.email().max(254), password: z.string().min(1).max(128) })
   .strict();
-export function problem(status: number, code: string, detail: string): never {
+export function problem(
+  status: number,
+  code: string,
+  detail: string,
+  errors?: FieldError[],
+): never {
   throw new HttpException(
     {
       type: "about:blank",
@@ -31,10 +36,69 @@ export function problem(status: number, code: string, detail: string): never {
       status,
       code,
       detail,
+      errors,
     },
     status,
   );
 }
+export type FieldError = { field: string; code: string; message: string };
+const fieldMessages: Record<string, string> = {
+  invalid_characters: "Contiene caracteres no permitidos.",
+  too_long: "Supera la longitud máxima.",
+  too_short: "Es demasiado corto.",
+  invalid_format: "El formato no es válido.",
+  required: "Es obligatorio.",
+  unknown_field: "Campo no permitido.",
+};
+/** Convierte los errores de zod en `errors[]` de Problem Details (AGENTS §22). */
+export function fieldErrors(error: z.ZodError): FieldError[] {
+  return error.issues.flatMap((issue) => {
+    const unknown =
+      issue.code === "unrecognized_keys" ? (issue.keys as string[]) : null;
+    if (unknown)
+      return unknown.map((key) => ({
+        field: key,
+        code: "unknown_field",
+        message: fieldMessages.unknown_field,
+      }));
+    const field = issue.path.join(".");
+    const code =
+      issue.code === "too_big"
+        ? "too_long"
+        : issue.code === "too_small"
+          ? "too_short"
+          : issue.code === "invalid_type"
+            ? "required"
+            : field === "name" && issue.code === "invalid_format"
+              ? "invalid_characters"
+              : "invalid_format";
+    return [{ field, code, message: fieldMessages[code] }];
+  });
+}
+// Argon2id con los mínimos de OWASP (19 MiB, t=2, p=1) y a lo sumo dos hashes a la
+// vez: el contenedor de la API tiene 384 MB y cada hash reserva su memoria.
+const argonOptions = { memoryCost: 19456, timeCost: 2, parallelism: 1 };
+let argonActive = 0;
+const argonWaiting: Array<() => void> = [];
+async function withArgon<T>(work: () => Promise<T>): Promise<T> {
+  if (argonActive >= 2)
+    await new Promise<void>((resolve) => argonWaiting.push(resolve));
+  argonActive++;
+  try {
+    return await work();
+  } finally {
+    argonActive--;
+    argonWaiting.shift()?.();
+  }
+}
+const hashPassword = (password: string) =>
+  withArgon(() => hash(password, argonOptions));
+const verifyPassword = (stored: string, password: string) =>
+  withArgon(() => verify(stored, password));
+// Hash de relleno para igualar el tiempo si la cuenta no existe: se calcula una vez.
+let fallbackHash: Promise<string> | undefined;
+const dummyHash = () =>
+  (fallbackHash ??= hashPassword(randomBytes(32).toString("hex")));
 @Injectable()
 export class AuthService {
   constructor(private readonly db: Database) {}
@@ -76,12 +140,14 @@ export class AuthService {
       sameSite: "lax" as const,
     };
   }
-  async rateLimit(request: FastifyRequest, account: string) {
-    // Both keys are independently bounded; nginx overwrites the client IP header.
-    for (const key of [
-      String(request.headers["x-real-ip"] ?? request.ip),
-      account.toLowerCase(),
-    ]) {
+  async rateLimit(request: FastifyRequest, account?: string) {
+    // Ambas claves se limitan por separado; nginx sobrescribe la cabecera de la IP.
+    // Sin cuenta (restablecer, inicio de OAuth) solo cuenta la IP: una clave fija
+    // bloquearía a todo el mundo.
+    const header = request.headers["x-real-ip"];
+    const ip =
+      (typeof header === "string" ? header.trim() : "") || request.ip;
+    for (const key of [ip, ...(account ? [account.toLowerCase()] : [])]) {
       const result = await this.db.pool.query(
         `INSERT INTO auth_attempts(key,attempts,window_start) VALUES ($1,1,now()) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN auth_attempts.window_start<now()-interval '15 minutes' THEN 1 ELSE auth_attempts.attempts+1 END,window_start=CASE WHEN auth_attempts.window_start<now()-interval '15 minutes' THEN now() ELSE auth_attempts.window_start END RETURNING attempts`,
         [digest(key)],
@@ -110,7 +176,12 @@ export class AuthController {
       .strict()
       .safeParse(body);
     if (!parsed.success)
-      problem(422, "validation_failed", "Revisa el correo electrónico.");
+      problem(
+        422,
+        "validation_failed",
+        "Revisa el correo electrónico.",
+        fieldErrors(parsed.error),
+      );
     await this.auth.rateLimit(request, parsed.data.email);
     const result = await this.db.pool.query(
       "SELECT id,email FROM users WHERE lower(email)=lower($1) AND suspended_at IS NULL",
@@ -141,9 +212,14 @@ export class AuthController {
       .strict()
       .safeParse(body);
     if (!parsed.success)
-      problem(422, "validation_failed", "Revisa el enlace y la contraseña.");
-    await this.auth.rateLimit(request, "reset");
-    const passwordHash = await hash(parsed.data.password);
+      problem(
+        422,
+        "validation_failed",
+        "Revisa el enlace y la contraseña.",
+        fieldErrors(parsed.error),
+      );
+    await this.auth.rateLimit(request);
+    const passwordHash = await hashPassword(parsed.data.password);
     const client = await this.db.pool.connect();
     let email: string;
     try {
@@ -203,9 +279,10 @@ export class AuthController {
         422,
         "validation_failed",
         "Revisa el nombre, correo, contraseña y aceptación de términos.",
+        fieldErrors(parsed.error),
       );
     await this.auth.rateLimit(request, parsed.data.email);
-    const passwordHash = await hash(parsed.data.password);
+    const passwordHash = await hashPassword(parsed.data.password);
     await this.db.pool.query(
       `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
       [
@@ -226,16 +303,23 @@ export class AuthController {
     this.auth.csrf(request);
     const parsed = credentials.safeParse(body);
     if (!parsed.success)
-      problem(422, "validation_failed", "Revisa el correo y la contraseña.");
+      problem(
+        422,
+        "validation_failed",
+        "Revisa el correo y la contraseña.",
+        fieldErrors(parsed.error),
+      );
     await this.auth.rateLimit(request, parsed.data.email);
     const result = await this.db.pool.query(
       "SELECT id,password_hash FROM users WHERE lower(email)=lower($1) AND suspended_at IS NULL",
       [parsed.data.email],
     );
     const user = result.rows[0];
-    const fallback = await hash(randomBytes(32));
     if (
-      !(await verify(user?.password_hash ?? fallback, parsed.data.password)) ||
+      !(await verifyPassword(
+        user?.password_hash ?? (await dummyHash()),
+        parsed.data.password,
+      )) ||
       !user
     )
       problem(401, "invalid_credentials", "Correo o contraseña incorrectos.");
