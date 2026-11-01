@@ -84,12 +84,14 @@ export function BotonesCuenta({ className }: { className?: string }) {
   );
 }
 
-export function MenuUsuario({ nombre, avatar }: { nombre: string; avatar: string }) {
+export function MenuUsuario({ nombre, avatar }: { nombre: string; avatar?: string }) {
   return (
-    <Button variant="ghost" className="gap-2 rounded-full pl-1.5 pr-3" aria-label={`Cuenta de ${nombre}`}>
-      <Avatar src={avatar} iniciales={nombre.slice(0, 1)} className="size-8" />
-      <span className="text-sm font-semibold">{nombre}</span>
-      <ChevronDownIcon aria-hidden="true" />
+    <Button asChild variant="ghost" className="gap-2 rounded-full pl-1.5 pr-3" aria-label={`Cuenta de ${nombre}`}>
+      <Link to="/panel">
+        <Avatar src={avatar} iniciales={nombre.slice(0, 1).toUpperCase()} className="size-8" />
+        <span className="text-sm font-semibold">{nombre}</span>
+        <ChevronDownIcon aria-hidden="true" />
+      </Link>
     </Button>
   );
 }

@@ -78,8 +78,10 @@ function mail(email) {
     await page
       .getByRole("button", { name: "Crear cuenta", exact: true })
       .click();
-    await page.waitForURL("**/entrar");
-    checks.push("registro");
+    await page.waitForURL((url) => url.pathname === "/");
+    await page.getByLabel("Cuenta de María Pérez").waitFor();
+    checks.push("registro redirige a portada logueado");
+    await page.goto(root + "/entrar");
     await page.locator("#correo").fill(email);
     await page.locator("#contrasena").fill("Wrong123!");
     await page
@@ -94,8 +96,12 @@ function mail(email) {
     await page
       .getByRole("button", { name: "Iniciar sesión", exact: true })
       .click();
+    await page.waitForURL((url) => url.pathname === "/");
+    await page.getByLabel("Cuenta de María Pérez").waitFor();
+    checks.push("login redirige a portada logueado");
+    await page.getByLabel("Cuenta de María Pérez").click();
     await page.waitForURL("**/panel");
-    checks.push("login");
+    checks.push("panel accesible desde cabecera");
     await page.goto(root + "/admin/");
     await page
       .getByRole("alert")
@@ -175,7 +181,8 @@ function mail(email) {
       fullPage: true,
     });
     const other = `member-${Date.now()}@example.com`;
-    const registration = await context.request.post(
+    const apiContext = await browser.newContext();
+    const registration = await apiContext.request.post(
       root + "/api/auth/register",
       {
         headers: { origin: root, "x-csrf": "1" },
@@ -188,6 +195,7 @@ function mail(email) {
       },
     );
     assert.equal(registration.status(), 201);
+    await apiContext.close();
     await page.locator("#admin-search").fill(other);
     await page.getByRole("button", { name: "Buscar", exact: true }).click();
     const row = page.getByRole("row").filter({ hasText: other });

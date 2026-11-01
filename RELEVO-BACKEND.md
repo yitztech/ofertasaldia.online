@@ -53,6 +53,16 @@ Lo que se comprobó (hechos, con evidencia), y lo que cambia del plan de abajo.
 
 Hecho y probado en local con el compose de producción + CI (`tests/api/hardening.cjs`, además de oauth/recovery/production-proxy): Argon2id con mínimos OWASP, hash de relleno único y máximo 2 hashes simultáneos (12 logins concurrentes: todos 401, API a ~59 MiB de 384); límite de intentos solo por IP en `reset`/OAuth y `x-real-ip` vacío; `errors[]` por campo en los 422 de auth; `X-Request-ID` y log JSON por petición. Pendiente de esta lista: OpenAPI, pruebas de autorización por endpoint, estructura de la parte 3, UUIDv7, OAuth con errores amigables, medición de `statement_timeout`.
 
+### Avance (rama `feat/redireccion-portada-sesion`)
+
+- Redirección tras registro e inicio de sesión: redirigen a la portada (`/`) con cookie de sesión activa (`Set-Cookie`). Si el login recibe `next=/admin/`, preserva la redirección al admin.
+- Portada y afiliado (`portada.tsx`, `afiliado.tsx`): leen la sesión vía `obtenerUsuario(request)` llamando a `/api/auth/me`. Si el usuario está autenticado, la cabecera muestra `MenuUsuario` (enlazando al panel `/panel`) en lugar de `BotonesCuenta` ("Iniciar sesión" / "Regístrate").
+- API (`services/api/src/auth.ts`, `oauth.ts`): `register` crea la sesión en base de datos y setea la cookie al crear el usuario. El callback de OAuth redirige a `/`.
+- Pruebas actualizadas y añadidas:
+  - `tests/api/production-proxy.cjs`: valida redirección a `/` y cookie `__Host-session` en registro y login.
+  - `tests/api/recovery.cjs`: valida que `register` genera sesión y cookie.
+  - `tests/e2e/forms.cjs`: valida en navegador que registro y login redirigen a `/`, muestran la cuenta en cabecera ("Cuenta de María Pérez") y permiten entrar al panel desde ella.
+
 ### Orden propuesto
 
 1. PR «CI: mailpit sin root y solo-pruebas» → aprobación → merge → comprobar publicación/despliegue y salud.

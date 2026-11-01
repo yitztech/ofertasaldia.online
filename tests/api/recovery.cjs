@@ -14,17 +14,14 @@ async function post(path, body, cookie) {
   });
 }
 (async () => {
-  assert.equal(
-    (
-      await post("register", {
-        name: "María Pérez",
-        email,
-        password: "Initial123!",
-        termsAccepted: true,
-      })
-    ).status,
-    201,
-  );
+  const reg = await post("register", {
+    name: "María Pérez",
+    email,
+    password: "Initial123!",
+    termsAccepted: true,
+  });
+  assert.equal(reg.status, 201);
+  assert.ok(reg.headers.get("set-cookie"), "registro crea sesión y cookie");
   const login = await post("login", { email, password: "Initial123!" });
   assert.equal(login.status, 201);
   const cookie = login.headers.get("set-cookie").split(";")[0];

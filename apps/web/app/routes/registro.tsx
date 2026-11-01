@@ -42,7 +42,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (response.ok) {
       const headers = new Headers();
       for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
-      return redirect("/entrar", { headers });
+      return redirect("/", { headers });
     }
   } catch { /* El formulario conserva los datos ante fallos de conexión. */ }
   return { errores, nombre, correo, noDisponible: true };
