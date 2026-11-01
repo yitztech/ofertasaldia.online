@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Problems } from "./problems.js";
 import { AdminController } from "./admin.js";
 import "reflect-metadata";
@@ -104,6 +105,33 @@ async function bootstrap() {
         .header("Content-Language", "es-MX");
       return payload;
     });
+  const fastify = app.getHttpAdapter().getInstance();
+  // Identificador de petición (AGENTS §30): el que llega por X-Request-ID, si es válido, o uno nuevo.
+  fastify.addHook("onRequest", async (request, reply) => {
+    const header = request.headers["x-request-id"];
+    const id =
+      typeof header === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(header)
+        ? header
+        : randomUUID();
+    request.headers["x-request-id"] = id;
+    reply.header("X-Request-ID", id);
+  });
+  // Una línea JSON por petición, sin la query ni datos personales.
+  fastify.addHook("onResponse", async (request, reply) => {
+    if (request.url.split("?")[0] === "/healthz") return;
+    console.log(
+      JSON.stringify({
+        time: new Date().toISOString(),
+        level: "info",
+        msg: "request",
+        requestId: request.headers["x-request-id"],
+        method: request.method,
+        path: request.url.split("?")[0],
+        status: reply.statusCode,
+        durationMs: Math.round(reply.elapsedTime),
+      }),
+    );
+  });
   await app.register(cookie);
   try {
     await migrate(app.get(Database).pool);
