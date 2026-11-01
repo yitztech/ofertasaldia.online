@@ -1,5 +1,68 @@
 # Estado y relevo del backend
 
+## Revisión 2026-11-01 (09:10, revisión independiente del trabajo anterior)
+
+Lo que se comprobó (hechos, con evidencia), y lo que cambia del plan de abajo.
+
+### Estado real
+
+| Punto | Lo que decía el plan | Estado comprobado |
+|---|---|---|
+| PR #4 | CI en curso, merge pendiente de aprobación | **Fusionado** en `main` (`c46aaf7`, 14:57 UTC) **sin revisiones** y con `Verificar` en **FAILURE**. El ruleset de `main` exige 1 aprobación del equipo y `Verificar`: se saltó con permisos de bypass. |
+| CI en `main` | — | Rojo en el push (run 41318755627) y en el cron (41319733456). `Escenarios` pasa; `Verificar` falla; `Publicar` y `Desplegar` se omiten. |
+| Producción | — | Sigue sirviendo `d1bc23f` (`/version.json`); `/api/health` responde 404. Nada del backend está publicado. |
+| Typecheck web/API/admin | Correcto | Correcto otra vez (`pnpm typecheck` en los tres). |
+
+**Causa del rojo**: la prueba de humo recorre `docker compose -f compose.prod.yml ps --services`, que incluye `mailpit` de
+`compose.ci.yml`, y `axllent/mailpit:v1.28` corre como root (`id -u` = 0, reproducido en local con el stack
+`ofertas-production-check`). La verificación local de «producción aislada» del plan no ejecutó este paso del CI.
+
+### Bloqueantes (antes de cualquier despliegue)
+
+1. **Arreglar `Verificar`**: en `compose.ci.yml` dar a `mailpit` un usuario sin root (p. ej. `user: "65534:65534"`; usa
+   los puertos 1025/8025, sin privilegios) y, según §35, perfil y etiqueta `ofertasaldia.solo-pruebas: "true"`. Probar
+   en local los mismos comandos del paso «Prueba de humo», completos, antes de subirlo.
+2. **Arreglo por PR normal, con aprobación del equipo** y los checks en verde. No volver a usar el bypass. Al fusionar,
+   registrar aquí el run de `main`, el SHA servido por `/version.json` y `/api/health` = 200.
+3. **Riesgo de memoria en login (OOM)**: `login` ejecuta dos Argon2id por petición (`hash(randomBytes)` de relleno +
+   `verify`), con ~64 MiB cada uno por defecto, en un contenedor de 384 MB. Unos pocos logins simultáneos pueden
+   matar la API. Calcular el hash de relleno una vez al arrancar y acotar la concurrencia de Argon2 (o ajustar
+   `memoryCost` dentro de lo que pide OWASP). Medirlo con una prueba de carga corta.
+4. **Límite de intentos global por error**: `reset` y el inicio de OAuth usan como clave de cuenta las constantes
+   `"reset"` y `"oauth-start"`, así que 20 peticiones de cualquiera en 15 min bloquean a todos (429). Usar solo la IP
+   en esos casos (o el hash del token / el proveedor + IP). Además `x-real-ip` vacío (`""`) no cae a `request.ip`
+   (`??` no cubre cadena vacía).
+
+### Incumplimientos de AGENTS.md encontrados (no bloquean el arreglo del CI, sí el «Done» del backend)
+
+- §22: los 422 no llevan `errors[]` con `field`/`code`; el frontend no puede marcar campos desde la API.
+- §30: la API solo registra errores 5xx; falta el log JSON por petición (`method`, `path`, `status`, `durationMs`,
+  `requestId`) y devolver `X-Request-ID`.
+- §24: el límite de intentos cuenta también los aciertos y no distingue fallos de login; no hay aviso al bloquear.
+- §33/§32: sin contrato OpenAPI ni pruebas de contrato; sin pruebas de autorización sistemáticas (401/403/404 por
+  endpoint).
+- Parte 3 (§35–§40): las pruebas son scripts `.cjs` sueltos. Faltan Gherkin + playwright-bdd, `npm test` y
+  `test:unit|api|endpoints|security|db`, `tests/db/` (migraciones, rol sin privilegios, longitudes = §6.3),
+  Squawk, `scripts/check-test-only.mjs` y los checks `Base de datos` y `Seguridad`.
+- §21: identificadores nuevos con `randomUUID()` (v4); la norma pide UUIDv7 en tablas nuevas (menor).
+- `statement_timeout` y `connectionTimeoutMillis` de 500 ms con pool de 5: riesgo de 503 bajo carga; revisar con
+  medición.
+- UX OAuth: los errores del callback devuelven JSON al navegador en vez de volver a `/entrar` con un mensaje.
+
+### Orden propuesto
+
+1. PR «CI: mailpit sin root y solo-pruebas» → aprobación → merge → comprobar publicación/despliegue y salud.
+2. PR de endurecimiento: Argon2 (memoria), claves del límite de intentos, logs por petición, `errors[]` en 422.
+3. Verificar en producción: SMTP real (un correo de recuperación a una cuenta controlada), backup remoto y
+   restauración, y crear el primer admin con `cli-admin`.
+4. Estructura de pruebas de la parte 3 y checks `Base de datos`/`Seguridad`; OpenAPI.
+5. Lo funcional pendiente de la lista de abajo (OAuth real, verificación de correo, catálogo persistente, pagos).
+
+Limpieza local: siguen arrancados los stacks Docker `ofertas-production-check` y `ofertasaldiaonline` (dev); apagarlos
+con `docker compose -p <proyecto> down` cuando no se usen (sin `-v` si se quieren conservar los datos).
+
+---
+
 Actualizado: 2026-11-01. Rama: `feat/backend-admin-production`, basada en `origin/main` (`d1bc23f`). No interpretar los archivos de diseño sin seguimiento como código entregado.
 
 ## Implementado
@@ -39,7 +102,7 @@ La cuenta inicial de administrador se crea registrando un correo controlado y ej
 
 ## Pendientes y límites
 
-- PR #4: https://github.com/yitztech/ofertasaldia.online/pull/4. CI en curso; integración y despliegue pendientes. Registrar resultado y SHA servido. GitHub exige aprobación del equipo antes del merge; no saltarse la regla.
+- PR #4: https://github.com/yitztech/ofertasaldia.online/pull/4. **Desactualizado, ver «Revisión 2026-11-01»**: el PR se fusionó (`c46aaf7`) sin aprobación y con `Verificar` en rojo; no se ha desplegado.
 - Configurar clientes reales Google/Apple y verificar consentimiento y sesión con ambos. Requieren credenciales y callback HTTPS registrado. No afirmar acceso real validado.
 - Verificar SMTP real y los backups externos después de desplegar. Solo se ha probado Mailpit y restauración local.
 - Catálogo y perfil de afiliado persistente completo: la portada/panel aún usan ejemplos. No confundir estadísticas demo del panel con métricas reales del admin.
