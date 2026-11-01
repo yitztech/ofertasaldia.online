@@ -42,7 +42,24 @@ const assert = require("node:assert/strict");
     }),
   });
   assert.equal(register.status, 302);
-  assert.equal(register.headers.get("location"), "/entrar");
+  assert.equal(register.headers.get("location"), "/");
+  const regCookie = register.headers.get("set-cookie");
+  assert.ok(regCookie.startsWith("__Host-session="));
+  assert.match(regCookie, /HttpOnly/i);
+  assert.match(regCookie, /Secure/i);
+  assert.match(regCookie, /SameSite=Lax/i);
+
+  const loginDefault = await fetch("http://gateway/entrar", {
+    method: "POST",
+    redirect: "manual",
+    headers,
+    body: new URLSearchParams({ correo: email, contrasena: "Initial123!" }),
+  });
+  assert.equal(loginDefault.status, 302);
+  assert.equal(loginDefault.headers.get("location"), "/");
+  const defaultCookie = loginDefault.headers.get("set-cookie");
+  assert.ok(defaultCookie.startsWith("__Host-session="));
+
   const login = await fetch("http://gateway/entrar?next=/admin/", {
     method: "POST",
     redirect: "manual",
@@ -57,7 +74,7 @@ const assert = require("node:assert/strict");
   assert.match(cookie, /Secure/i);
   assert.match(cookie, /SameSite=Lax/i);
   console.log(
-    "PASS: formularios detrás de proxy HTTPS y cookie segura de producción",
+    "PASS: registro y login redirigen a portada con cookie segura de producción",
   );
 })().catch((e) => {
   console.error(e);

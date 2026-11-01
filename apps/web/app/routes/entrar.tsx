@@ -31,7 +31,7 @@ export async function action({ request }: Route.ActionArgs) {
       const headers = new Headers();
       for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
       if (new URL(request.url).searchParams.get("next") === "/admin/") return redirectDocument("/admin/", { headers });
-      return redirect("/panel", { headers });
+      return redirect("/", { headers });
     }
   } catch { /* El formulario conserva los datos ante fallos de conexión. */ }
   return { errores, correo, noDisponible: true };

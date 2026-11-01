@@ -10,6 +10,7 @@ import {
   EnlaceComoFunciona,
   EnlaceParaAfiliados,
   FavoritosBoton,
+  MenuUsuario,
 } from "~/components/layout/acciones-cabecera";
 import { Pie } from "~/components/layout/pie";
 import { BannerPlataforma } from "~/components/ofertas/banner-plataforma";
@@ -21,6 +22,7 @@ import { TarjetaColeccion } from "~/components/ofertas/tarjeta-coleccion";
 import type { CategoriaId, PlataformaId } from "~/datos/tipos";
 import { limites } from "~/lib/limites";
 import { catalogo } from "~/servicios/catalogo";
+import { obtenerUsuario } from "~/servicios/auth.server";
 
 export function meta() {
   return [
@@ -33,7 +35,7 @@ export function meta() {
   ];
 }
 
-export function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").slice(0, limites.busqueda);
   const categorias = catalogo.categorias();
@@ -42,8 +44,10 @@ export function loader({ request }: Route.LoaderArgs) {
   const plataformaPedida = url.searchParams.get("plataforma");
   const plataforma: PlataformaId | undefined =
     plataformaPedida === "amazon" || plataformaPedida === "mercadolibre" ? plataformaPedida : undefined;
+  const usuario = await obtenerUsuario(request);
 
   return {
+    usuario,
     q,
     categoria,
     categorias,
@@ -73,7 +77,7 @@ function EncabezadoSeccion({ id, titulo, subtitulo, enlace }: { id: string; titu
 }
 
 export default function Portada({ loaderData }: Route.ComponentProps) {
-  const { q, categoria, categorias, ofertas, colecciones, masVendidos } = loaderData;
+  const { usuario, q, categoria, categorias, ofertas, colecciones, masVendidos } = loaderData;
   const navegacion = useNavigation();
   const buscando = Boolean(q) || categoria !== "todas";
 
@@ -90,7 +94,11 @@ export default function Portada({ loaderData }: Route.ComponentProps) {
             <EnlaceParaAfiliados />
             <FavoritosBoton />
             <AvisosBoton />
-            <BotonesCuenta className="ml-1" />
+            {usuario ? (
+              <MenuUsuario nombre={usuario.name} />
+            ) : (
+              <BotonesCuenta className="ml-1" />
+            )}
           </>
         }
       />

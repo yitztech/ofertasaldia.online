@@ -7,7 +7,7 @@ import { FiltrosDelPerfil } from "~/components/afiliado/filtros-perfil";
 import { Pestanas } from "~/components/afiliado/pestanas";
 import { ColeccionesDelAfiliado, LlamadaSeguir, SobreAfiliado } from "~/components/afiliado/tarjetas-laterales";
 import { EstadoError, TarjetasCargando } from "~/components/comun/estados";
-import { BotonesCuenta, CarritoBoton, EnlaceParaAfiliados, FavoritosBoton } from "~/components/layout/acciones-cabecera";
+import { BotonesCuenta, CarritoBoton, EnlaceParaAfiliados, FavoritosBoton, MenuUsuario } from "~/components/layout/acciones-cabecera";
 import { Cabecera } from "~/components/layout/cabecera";
 import { Pie } from "~/components/layout/pie";
 import { RejillaOfertas } from "~/components/ofertas/rejilla-ofertas";
@@ -17,11 +17,13 @@ import { NativeSelect } from "~/components/ui/select";
 import type { Afiliado, Oferta } from "~/datos/tipos";
 import { filtrarPerfil, filtrosIniciales, type Orden } from "~/lib/ofertas";
 import { afiliados } from "~/servicios/catalogo";
+import { obtenerUsuario } from "~/servicios/auth.server";
 
-export async function loader({ params }: Route.LoaderArgs) {
+export async function loader({ params, request }: Route.LoaderArgs) {
   const perfil = await afiliados.porAlias(params.alias);
   if (!perfil) throw new Response("Afiliado no encontrado", { status: 404 });
-  return { afiliado: perfil.afiliado, ofertas: Promise.resolve(perfil.ofertas), colecciones: perfil.colecciones };
+  const usuario = await obtenerUsuario(request);
+  return { usuario, afiliado: perfil.afiliado, ofertas: Promise.resolve(perfil.ofertas), colecciones: perfil.colecciones };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -102,7 +104,7 @@ function Productos({ afiliado, ofertas }: { afiliado: Afiliado; ofertas: Oferta[
 }
 
 export default function PaginaAfiliado({ loaderData }: Route.ComponentProps) {
-  const { afiliado, ofertas, colecciones } = loaderData;
+  const { usuario, afiliado, ofertas, colecciones } = loaderData;
   const [pestana, setPestana] = useState("productos");
   const primerNombre = afiliado.nombre;
   return (
@@ -113,7 +115,11 @@ export default function PaginaAfiliado({ loaderData }: Route.ComponentProps) {
             <EnlaceParaAfiliados />
             <FavoritosBoton />
             <CarritoBoton />
-            <BotonesCuenta className="ml-1" />
+            {usuario ? (
+              <MenuUsuario nombre={usuario.name} />
+            ) : (
+              <BotonesCuenta className="ml-1" />
+            )}
           </>
         }
       />

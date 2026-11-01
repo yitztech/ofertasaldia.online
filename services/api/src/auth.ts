@@ -259,7 +259,11 @@ export class AuthController {
     return this.auth.user(request);
   }
   @Post("register")
-  async register(@Body() body: unknown, @Req() request: FastifyRequest) {
+  async register(
+    @Body() body: unknown,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ) {
     this.auth.csrf(request);
     const schema = credentials
       .extend({
@@ -283,15 +287,27 @@ export class AuthController {
       );
     await this.auth.rateLimit(request, parsed.data.email);
     const passwordHash = await hashPassword(parsed.data.password);
-    await this.db.pool.query(
-      `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+    const id = randomUUID();
+    const result = await this.db.pool.query(
+      `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING id`,
       [
-        randomUUID(),
+        id,
         parsed.data.name.replace(/\s+/g, " "),
         parsed.data.email.toLowerCase(),
         passwordHash,
       ],
     );
+    if (result.rows[0]) {
+      const token = randomBytes(32).toString("base64url");
+      await this.db.pool.query(
+        `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')`,
+        [digest(token), result.rows[0].id],
+      );
+      reply.setCookie(this.auth.cookieName(), token, {
+        ...this.auth.cookieOptions(),
+        maxAge: 604800,
+      });
+    }
     return { status: "ok" };
   }
   @Post("login")

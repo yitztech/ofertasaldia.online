@@ -242,6 +242,6 @@ export class OAuthController {
       ...this.auth.cookieOptions(),
       maxAge: 604800,
     });
-    return reply.code(302).redirect("/panel");
+    return reply.code(302).redirect("/");
   }
 }
