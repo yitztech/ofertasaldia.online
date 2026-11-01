@@ -37,7 +37,7 @@ La cuenta inicial de administrador se crea registrando un correo controlado y ej
 
 ## Pendientes y límites
 
-- CI del PR, integración y despliegue de esta rama: registrar resultado y SHA servido. GitHub exige aprobación del equipo antes del merge; no saltarse la regla.
+- PR #4: https://github.com/yitztech/ofertasaldia.online/pull/4. CI en curso; integración y despliegue pendientes. Registrar resultado y SHA servido. GitHub exige aprobación del equipo antes del merge; no saltarse la regla.
 - Configurar clientes reales Google/Apple y verificar consentimiento y sesión con ambos. Requieren credenciales y callback HTTPS registrado. No afirmar acceso real validado.
 - Verificar SMTP real y los backups externos después de desplegar. Solo se ha probado Mailpit y restauración local.
 - Catálogo y perfil de afiliado persistente completo: la portada/panel aún usan ejemplos. No confundir estadísticas demo del panel con métricas reales del admin.
