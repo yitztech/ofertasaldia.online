@@ -1,0 +1,4 @@
+services:
+  mailpit:
+    image: axllent/mailpit:v1.28
+    networks: [backend]

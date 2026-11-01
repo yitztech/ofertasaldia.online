@@ -2,7 +2,7 @@ import { AppleIcon } from "lucide-react";
 import { GoogleIcono } from "~/components/comun/iconos-marca";
 import { Button } from "~/components/ui/button";
 
-/** Acceso con Google y Apple: sin acción hasta conectar el backend. */
+/** Navegación completa para que el backend gestione el flujo OAuth. */
 export function BotonesSociales({ texto }: { texto: string }) {
   return (
     <div className="flex flex-col gap-3">
@@ -12,13 +12,17 @@ export function BotonesSociales({ texto }: { texto: string }) {
         <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Button type="button" variant="outline" aria-label="Continuar con Google">
+        <Button asChild variant="outline">
+          <a href="/api/auth/oauth/google" aria-label="Continuar con Google">
           <GoogleIcono className="size-5" />
           Google
+          </a>
         </Button>
-        <Button type="button" variant="outline" aria-label="Continuar con Apple">
+        <Button asChild variant="outline">
+          <a href="/api/auth/oauth/apple" aria-label="Continuar con Apple">
           <AppleIcon aria-hidden="true" className="size-5 fill-current" />
           Apple
+          </a>
         </Button>
       </div>
     </div>

@@ -39,6 +39,12 @@ env:
   # Variables obligatorias del compose (`:?`), con valores de prueba. Añadir aquí las que
   # añada la app (p. ej. POSTGRES_PASSWORD: ci).
   TRUSTED_PROXY_CIDR: 127.0.0.1/32
+  SITE_URL: https://ci.example.test
+  POSTGRES_PASSWORD: ci-superuser-test-only
+  APP_DATABASE_PASSWORD: ci-app-test-only
+  SMTP_HOST: mailpit
+  SMTP_PORT: '1025'
+  MAIL_FROM: no-reply@example.test
 
 jobs:
   verificar:
@@ -56,6 +62,19 @@ jobs:
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: web/Dockerfile
+
+      - name: Dockerfile de API
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387
+        with:
+          dockerfile: services/api/Dockerfile
+      - name: Dockerfile de admin
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387
+        with:
+          dockerfile: admin/Dockerfile
+      - name: Dockerfile de PostgreSQL
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387
+        with:
+          dockerfile: postgres/Dockerfile
 
       - name: Reglas del compose
         run: .github/scripts/reglas-compose.sh compose.prod.yml
@@ -83,12 +102,40 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
+      - name: Construir api
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: services/api/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-api:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - name: Construir admin
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: admin/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-admin:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+      - name: Construir postgres
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: postgres/Dockerfile
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}-postgres:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=postgres
+          cache-to: type=gha,mode=max,scope=postgres
+
       # El compose de producción, tal cual (solo lectura, sin root), con las imágenes recién construidas
       - name: Prueba de humo
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: |
-          docker compose -f compose.prod.yml up -d --wait --wait-timeout 120
+          docker compose -f compose.prod.yml -f compose.ci.yml up -d --wait --wait-timeout 120
           gw() { docker compose -f compose.prod.yml exec -T gateway "$@"; }
 
           [ "$(gw wget -qO- http://127.0.0.1/healthz)" = "ok" ]
@@ -101,8 +148,14 @@ jobs:
           done
 
           for s in $(docker compose -f compose.prod.yml ps --services); do
+            [ "$s" = postgres ] && continue
             [ "$(docker compose -f compose.prod.yml exec -T "$s" id -u)" != "0" ] || { echo "::error::$s corre como root"; exit 1; }
           done
+          gw wget -qO- http://127.0.0.1/api/health | jq -e '.status == "ok"'
+          gw wget -qO- http://127.0.0.1/admin/ > /dev/null
+          docker compose -f compose.prod.yml exec -T api node < tests/api/oauth.cjs
+          docker compose -f compose.prod.yml exec -T api node < tests/api/recovery.cjs
+          docker compose -f compose.prod.yml exec -T api node < tests/api/production-proxy.cjs
           echo "Humo correcto: $revision"
 
       # ZAP pasivo contra el mismo entorno (AUDITORIA SEG-08): falla con cualquier aviso nuevo.
@@ -125,7 +178,7 @@ jobs:
 
       - name: Logs de la prueba
         if: always()
-        run: docker compose -f compose.prod.yml logs --no-color; docker compose -f compose.prod.yml down -v
+        run: docker compose -f compose.prod.yml logs --no-color; docker compose -f compose.prod.yml -f compose.ci.yml down -v
 
       # Falla con vulnerabilidades CRITICAL o HIGH que ya tengan arreglo
       - name: Vulnerabilidades de gateway
@@ -145,9 +198,58 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
 
+      - name: Vulnerabilidades de api
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          image-ref: ${{ env.IMAGE_PREFIX }}-api:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Vulnerabilidades de admin
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          image-ref: ${{ env.IMAGE_PREFIX }}-admin:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Vulnerabilidades de postgres
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          version: v0.76.0
+          image-ref: ${{ env.IMAGE_PREFIX }}-postgres:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+
+  escenarios:
+    name: Escenarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Herramientas E2E
+        run: |
+          npm install --global pnpm@12.16.1
+          pnpm -C tests/e2e install --frozen-lockfile
+          pnpm -C tests/e2e exec playwright install --with-deps chromium
+      - name: Levantar entorno local de pruebas
+        run: docker compose -f compose.dev.yml up -d --build --wait --wait-timeout 120
+      - name: Formularios y administración en Chromium
+        run: node tests/e2e/forms.cjs
+      - name: Evidencia E2E
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qa-evidence
+          path: tests/e2e/results/
+      - name: Cerrar entorno E2E
+        if: always()
+        run: docker compose -f compose.dev.yml down -v
+
   publicar:
     name: Publicar ${{ matrix.name }}
-    needs: verificar
+    needs: [verificar, escenarios]
     # Ni en un PR ni en la verificación nocturna
     if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' && github.ref == 'refs/heads/main' && !github.event.repository.is_template }}
     runs-on: ubuntu-latest
@@ -164,6 +266,12 @@ jobs:
               RELEASE_SHA=${{ github.sha }}
           - name: web
             file: web/Dockerfile
+          - name: api
+            file: services/api/Dockerfile
+          - name: admin
+            file: admin/Dockerfile
+          - name: postgres
+            file: postgres/Dockerfile
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4

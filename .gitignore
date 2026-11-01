@@ -7,3 +7,4 @@ build/
 .react-router/
 .playwright-mcp/
 .DS_Store
+tests/e2e/results/

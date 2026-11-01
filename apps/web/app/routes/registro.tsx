@@ -1,11 +1,14 @@
+import { redirect } from "react-router";
+import { authRequest } from "~/servicios/auth.server";
 import { useState } from "react";
 import { BookmarkIcon, BellIcon, ChartColumnIcon, LockIcon, MailIcon, UserIcon, UsersIcon } from "lucide-react";
-import { Form, Link, redirect, useActionData, useNavigation } from "react-router";
+import { Form, Link, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/registro";
 import { AuthLayout } from "~/components/auth/auth-layout";
 import { BotonesSociales } from "~/components/auth/botones-sociales";
 import { CampoContrasena, CampoTexto } from "~/components/auth/campos";
 import { Button } from "~/components/ui/button";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Checkbox } from "~/components/ui/checkbox";
 import { limites } from "~/lib/limites";
 import {
@@ -34,8 +37,15 @@ export async function action({ request }: Route.ActionArgs) {
     aError("terminos", terminos ? null : "Debes aceptar los términos para continuar."),
   );
   if (Object.keys(errores).length) return { errores, nombre, correo };
-  // Sin backend todavía: el alta simulada lleva al panel.
-  return redirect("/panel");
+  try {
+    const response = await authRequest(request, "register", { email: correo, password: contrasena, name: nombre, termsAccepted: terminos });
+    if (response.ok) {
+      const headers = new Headers();
+      for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
+      return redirect("/entrar", { headers });
+    }
+  } catch { /* El formulario conserva los datos ante fallos de conexión. */ }
+  return { errores, nombre, correo, noDisponible: true };
 }
 
 export default function Registro() {
@@ -64,6 +74,7 @@ export default function Registro() {
       subtituloTarjeta="Es rápido y gratuito"
     >
       <Form method="post" noValidate className="flex flex-col gap-4">
+        {resultado?.noDisponible ? <Alert role="alert"><AlertDescription>No se pudo crear la cuenta. Revisa los datos o inténtalo de nuevo.</AlertDescription></Alert> : null}
         <CampoTexto
           id="nombre"
           name="nombre"

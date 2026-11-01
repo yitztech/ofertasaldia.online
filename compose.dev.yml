@@ -1,0 +1,83 @@
+# Entorno inicial de desarrollo; no usar como entorno de producción.
+services:
+  gateway:
+    image: nginx:1.29-alpine
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      web: {condition: service_healthy}
+      api: {condition: service_healthy}
+      admin: {condition: service_healthy}
+    networks: [frontend]
+  web:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:3000/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    environment:
+      SITE_URL: http://localhost:8080
+      API_URL: http://api:3001
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    networks: [frontend]
+  api:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:3001/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://ofertas:development@postgres:5432/ofertas
+      NODE_ENV: development
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_CLIENT_SECRET: ${APPLE_CLIENT_SECRET:-}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      MAIL_FROM: no-reply@ofertasaldia.local
+      SITE_URL: http://localhost:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [frontend, backend]
+  admin:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8081/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    networks: [frontend]
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: ofertas
+      POSTGRES_PASSWORD: development
+      POSTGRES_DB: ofertas
+    volumes:
+      - postgres-dev:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U ofertas -d ofertas"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [backend]
+  mailpit:
+    image: axllent/mailpit:v1.28
+    networks: [backend]
+volumes:
+  postgres-dev:
+networks:
+  frontend:
+  backend:
+    internal: true

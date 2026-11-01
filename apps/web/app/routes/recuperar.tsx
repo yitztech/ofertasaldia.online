@@ -1,3 +1,4 @@
+import { authRequest } from "~/servicios/auth.server";
 import { ArrowLeftIcon, ClockIcon, MailIcon, ShieldCheckIcon } from "lucide-react";
 import { Form, Link, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/recuperar";
@@ -17,8 +18,11 @@ export async function action({ request }: Route.ActionArgs) {
   const correo = String(datos.get("correo") ?? "");
   const error = validarCorreo(correo);
   if (error) return { error, enviado: false as const, correo };
-  // Misma respuesta exista o no la cuenta (AGENTS §22). El envío real llega con el backend.
-  return { error: null, enviado: true as const, correo };
+  try {
+    const response = await authRequest(request, "recover", { email: correo });
+    if (response.ok) return { error: null, enviado: true, correo, noDisponible: false };
+  } catch { /* Conservar correo para reintentar. */ }
+  return { error: null, enviado: false, correo, noDisponible: true };
 }
 
 export default function Recuperar() {
@@ -44,6 +48,7 @@ export default function Recuperar() {
       subtituloTarjeta="Ingresa el correo electrónico con el que te registraste y te enviaremos un enlace para restablecer tu contraseña."
     >
       <Form method="post" noValidate className="flex flex-col gap-4">
+        {resultado?.noDisponible ? <Alert role="alert"><AlertDescription>No se pudo solicitar el enlace. Inténtalo de nuevo.</AlertDescription></Alert> : null}
         {resultado?.enviado ? (
           <Alert variant="success" role="status">
             <AlertDescription>

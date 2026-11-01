@@ -1,5 +1,7 @@
+import { redirect, redirectDocument } from "react-router";
+import { authRequest } from "~/servicios/auth.server";
 import { HeartIcon, LockIcon, MailIcon, ShieldCheckIcon, ZapIcon } from "lucide-react";
-import { Form, Link, redirect, useActionData, useNavigation, useSearchParams } from "react-router";
+import { Form, Link, useActionData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/entrar";
 import { AuthLayout } from "~/components/auth/auth-layout";
 import { BotonesSociales } from "~/components/auth/botones-sociales";
@@ -23,8 +25,16 @@ export async function action({ request }: Route.ActionArgs) {
     aError("contrasena", validarContrasenaSimple(contrasena)),
   );
   if (Object.keys(errores).length) return { errores, correo };
-  // Sin backend todavía: el acceso simulado lleva al panel.
-  return redirect("/panel");
+  try {
+    const response = await authRequest(request, "login", { email: correo, password: contrasena });
+    if (response.ok) {
+      const headers = new Headers();
+      for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
+      if (new URL(request.url).searchParams.get("next") === "/admin/") return redirectDocument("/admin/", { headers });
+      return redirect("/panel", { headers });
+    }
+  } catch { /* El formulario conserva los datos ante fallos de conexión. */ }
+  return { errores, correo, noDisponible: true };
 }
 
 export default function Entrar() {
@@ -52,6 +62,7 @@ export default function Entrar() {
       subtituloTarjeta="Bienvenido a OfertasAlDia"
     >
       <Form method="post" noValidate className="flex flex-col gap-4">
+        {resultado?.noDisponible ? <Alert role="alert"><AlertDescription>No se pudo iniciar sesión. Revisa tus datos o inténtalo de nuevo.</AlertDescription></Alert> : null}
         {params.get("restablecida") ? (
           <Alert variant="success" role="status">
             <AlertDescription>Tu contraseña se actualizó. Ya puedes iniciar sesión.</AlertDescription>
