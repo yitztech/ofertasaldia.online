@@ -1,7 +1,8 @@
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { useMemo, useState } from "react";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { Suspense } from "react";
-import { Await } from "react-router";
+import { Await, redirect } from "react-router";
 import type { Route } from "./+types/panel";
 import { CabeceraAfiliado } from "~/components/afiliado/cabecera-afiliado";
 import { Pestanas } from "~/components/afiliado/pestanas";
@@ -30,7 +31,16 @@ export function meta() {
   return [{ title: "Mi perfil · Panel de OfertasAlDia" }];
 }
 
-export function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
+  let response: Response;
+  try {
+    response = await fetch(`${process.env.API_URL ?? 'http://api:3001'}/api/auth/me`, {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch { throw new Response('Servicio temporalmente no disponible', { status: 503 }); }
+  if (response.status === 401) throw redirect('/entrar');
+  if (!response.ok) throw new Response('Servicio temporalmente no disponible', { status: 503 });
   return {
     afiliado: panel.afiliado(),
     conteos: panel.conteos(),
@@ -185,6 +195,7 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
       <main id="contenido" className="contenedor grid gap-4 py-4 lg:grid-cols-[14rem_1fr] lg:gap-6">
         <BarraLateralPanel />
         <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_22rem]">
+          <Alert className="xl:col-span-2"><AlertDescription>Panel de demostración: los productos, el perfil y las estadísticas son ejemplos y no representan la actividad de tu cuenta.</AlertDescription></Alert>
           <div className="flex min-w-0 flex-col gap-6">
             <CabeceraAfiliado afiliado={afiliado} variante="panel" />
             <Pestanas pestanas={pestanas} activa={pestana} onCambiar={setPestana} etiqueta="Secciones de tu perfil">

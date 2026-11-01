@@ -1,0 +1,215 @@
+@import "tailwindcss";
+@import "@fontsource-variable/instrument-sans";
+
+/*
+ * Tokens de diseño de OfertasAlDía (paleta rosa, morado y blanco de /design).
+ * Todo componente consume estos tokens; ningún color va en crudo en el JSX.
+ */
+:root {
+  /* Color: superficies y texto */
+  --background: #fcf9ff;
+  --foreground: #160f2e;
+  --card: #ffffff;
+  --card-foreground: #160f2e;
+  --muted: #f6f1fb;
+  --muted-foreground: #6a6580;
+  --border: #ece5f6;
+  --input: #e3dbf0;
+
+  /* Color: marca morada y rosa */
+  --primary: #8a22c7;
+  --primary-hover: #7419ab;
+  --primary-foreground: #ffffff;
+  --marca-desde: #7a1fc2;
+  --marca-hasta: #b52fd9;
+  --acento: #f1e7fc;
+  --acento-foreground: #7a1fc2;
+  --rosa: #f9dff1;
+  --rosa-suave: #fdeff9;
+  --lila: #ece1fb;
+  --violeta: #5b3fd9;
+  --violeta-hover: #4a30c0;
+  --violeta-suave: #ece7fd;
+  --ring: #8a22c7;
+
+  /* Color: estados y señales */
+  --precio: #d4202b;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --descuento: #e11d2e;
+  --descuento-foreground: #ffffff;
+  --success: #0f9d6b;
+  --success-foreground: #ffffff;
+  --warning: #f2a41b;
+  --warning-foreground: #3b2500;
+  --estrella: #f5a524;
+  --mercadolibre: #ffe600;
+  --corona: #f5b50a;
+
+  /* Forma y elevación */
+  --radius: 0.75rem;
+  --sombra-tarjeta: 0 1px 2px rgb(70 30 120 / 0.04), 0 10px 28px -14px rgb(110 40 170 / 0.22);
+  --sombra-boton: 0 6px 16px -6px rgb(138 34 199 / 0.55);
+}
+
+@theme inline {
+  --font-sans: "Instrument Sans Variable", system-ui, -apple-system, sans-serif;
+  --font-display: "Instrument Sans Variable", system-ui, -apple-system, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-marca-desde: var(--marca-desde);
+  --color-marca-hasta: var(--marca-hasta);
+  --color-acento: var(--acento);
+  --color-acento-foreground: var(--acento-foreground);
+  --color-rosa: var(--rosa);
+  --color-rosa-suave: var(--rosa-suave);
+  --color-lila: var(--lila);
+  --color-violeta: var(--violeta);
+  --color-violeta-hover: var(--violeta-hover);
+  --color-violeta-suave: var(--violeta-suave);
+  --color-ring: var(--ring);
+  --color-precio: var(--precio);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-descuento: var(--descuento);
+  --color-descuento-foreground: var(--descuento-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-estrella: var(--estrella);
+  --color-mercadolibre: var(--mercadolibre);
+  --color-corona: var(--corona);
+
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+
+  --shadow-2xs: 0 1px 2px rgb(70 30 120 / 0.05);
+  --shadow-tarjeta: var(--sombra-tarjeta);
+  --shadow-boton: var(--sombra-boton);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility contenedor {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 96rem;
+  padding-inline: 1rem;
+
+  @media (min-width: 768px) {
+    padding-inline: 1.5rem;
+  }
+}
+
+@utility cifras {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Degradado de marca (botones, texto destacado). */
+@utility bg-marca {
+  background-image: linear-gradient(90deg, var(--marca-desde), var(--marca-hasta));
+}
+
+@utility texto-marca {
+  background-image: linear-gradient(90deg, var(--marca-desde), var(--marca-hasta));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Fondos rosa-lila de las secciones hero. */
+@utility bg-hero {
+  background-image: linear-gradient(120deg, #fbeff9 0%, #f3e6fb 45%, #ead9f8 100%);
+}
+
+@utility bg-hero-auth {
+  background-image: linear-gradient(135deg, #fdf0fa 0%, #f6e8fc 50%, #ecdcf9 100%);
+}
+
+/* Desvanece una imagen hacia la izquierda y hacia abajo para fundirla con el fondo. */
+@utility desvanecer-izquierda {
+  mask-image: linear-gradient(to right, transparent 0%, #000 38%);
+}
+
+@utility desvanecer-abajo {
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+
+@utility desvanecer-esquina {
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 30%), linear-gradient(to bottom, #000 62%, transparent 100%);
+  mask-composite: intersect;
+}
+
+@utility sin-barra {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility desvanecer-lateral-superior {
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 28%), linear-gradient(to left, transparent 0%, #000 14%),
+    linear-gradient(to bottom, transparent 0%, #000 24%);
+  mask-composite: intersect;
+}

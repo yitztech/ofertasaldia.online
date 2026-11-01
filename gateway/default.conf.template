@@ -10,6 +10,9 @@ server_tokens off;
 resolver 127.0.0.11 valid=10s ipv6=off;
 upstream web_upstream { zone web_upstream 64k; server web:3000 resolve; keepalive 16; }
 
+upstream api_upstream { zone api_upstream 64k; server api:3001 resolve; keepalive 16; }
+upstream admin_upstream { zone admin_upstream 64k; server admin:8081 resolve; keepalive 16; }
+
 # ── IP real del cliente ─────────────────────────────────────────────
 # Solo se confía en X-Forwarded-For si llega de la red donde está Traefik
 # (TRUSTED_PROXY_CIDR). Sin esto todo el mundo parecería tener la IP de Traefik.
@@ -39,6 +42,18 @@ server {
         return 200 '{"revision":"${RELEASE_SHA}"}';
     }
 
+    location = /admin { return 302 /admin/; }
+    location /admin/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_pass http://admin_upstream;
+    }
+    location /api/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        client_max_body_size 1m;
+        proxy_pass http://api_upstream;
+    }
     location / {
         include /etc/nginx/snippets/proxy-headers.conf;
         include /etc/nginx/snippets/security-headers.conf;

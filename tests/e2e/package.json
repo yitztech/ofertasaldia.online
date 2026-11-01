@@ -1,0 +1,1 @@
+{"name":"@ofertas/e2e","private":true,"packageManager":"pnpm@12.16.1","scripts":{"test":"node forms.cjs"},"devDependencies":{"playwright":"1.62.1"}}

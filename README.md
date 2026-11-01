@@ -1,4 +1,6 @@
-# Plantilla de web de cliente
+# OfertasAlDía
+
+Web pública, API NestJS/Fastify, administración React/shadcn y PostgreSQL detrás de nginx. Guía de entornos, variables y operación: [docs/DESPLIEGUE-BACKEND.md](docs/DESPLIEGUE-BACKEND.md). Configuración OAuth: [docs/OAUTH.md](docs/OAUTH.md). Evidencia y pendientes: [RELEVO-BACKEND.md](RELEVO-BACKEND.md).
 
 Repositorio plantilla de **yitztech**. El alta de cada cliente
 ([infra-ionos-vps](https://github.com/yprevot/infra-ionos-vps), playbook `cliente-alta`, fase `repo`)

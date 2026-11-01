@@ -30,6 +30,7 @@ WORKDIR /app
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/build ./build
+COPY --from=build /app/server.mjs ./server.mjs
 
 # npm y corepack no hacen falta para ejecutar la app y traen dependencias con CVE propias
 RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
@@ -38,4 +39,4 @@ RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /us
 USER 1000:1000
 EXPOSE 3000
 # Forma de lista: node es el proceso principal y recibe SIGTERM (AGENTS §20)
-CMD ["node_modules/.bin/react-router-serve", "build/server/index.js"]
+CMD ["node", "server.mjs"]

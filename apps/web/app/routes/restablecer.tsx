@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { authRequest } from "~/servicios/auth.server";
+import { redirect } from "react-router";
+import { useEffect, useState } from "react";
 import { ArrowLeftIcon, CircleCheckIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
-import { Form, Link, redirect, useActionData, useNavigation } from "react-router";
+import { Form, Link, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/restablecer";
 import { AuthLayout } from "~/components/auth/auth-layout";
 import { CampoContrasena } from "~/components/auth/campos";
 import { MedidorContrasena } from "~/components/auth/medidor-contrasena";
 import { Button } from "~/components/ui/button";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { limites } from "~/lib/limites";
 import { aError, recolectar, reglasContrasena, validarContrasenaNueva } from "~/lib/validacion";
 
@@ -23,14 +26,20 @@ export async function action({ request }: Route.ActionArgs) {
     aError("confirmacion", nueva === confirmacion ? null : "Las contraseñas no coinciden."),
   );
   if (Object.keys(errores).length) return { errores };
-  // Sin backend todavía: el cambio simulado vuelve al acceso.
-  return redirect("/entrar?restablecida=1");
+  try {
+    const token = String(datos.get("token") ?? "");
+    const response = await authRequest(request, "reset", { token, password: nueva });
+    if (response.ok) return redirect("/entrar?restablecida=1");
+    return { errores: { ...errores, contrasena: "El enlace no es válido o ha vencido. Solicita uno nuevo." }, noDisponible: false };
+  } catch { return { errores, noDisponible: true }; }
 }
 
 export default function Restablecer() {
   const resultado = useActionData<typeof action>();
   const enviando = useNavigation().state === "submitting";
   const [contrasena, setContrasena] = useState("");
+  const [token, setToken] = useState("");
+  useEffect(() => { setToken(new URLSearchParams(window.location.hash.slice(1)).get("token") ?? ""); }, []);
   const errores = resultado?.errores ?? {};
   return (
     <AuthLayout
@@ -51,6 +60,8 @@ export default function Restablecer() {
       tituloTarjeta="Restablecer contraseña"
     >
       <Form method="post" noValidate className="flex flex-col gap-4">
+        <input type="hidden" name="token" value={token} />
+        {resultado?.noDisponible ? <Alert role="alert"><AlertDescription>No se pudo cambiar la contraseña. Inténtalo de nuevo.</AlertDescription></Alert> : null}
         <CampoContrasena
           id="contrasena"
           name="contrasena"
