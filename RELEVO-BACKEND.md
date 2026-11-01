@@ -4,7 +4,7 @@ Actualizado: 2026-11-01. Rama: `feat/backend-admin-production`, basada en `origi
 
 ## Implementado
 
-- API NestJS 11/Fastify, PostgreSQL, migraciones 1–7 transaccionales con bloqueo, salud y disponibilidad.
+- API NestJS 12.3.2/Fastify 5.12.7, PostgreSQL, migraciones 1–7 transaccionales con bloqueo, salud y disponibilidad.
 - Registro, acceso, sesiones hash/cookies HttpOnly, logout, recuperación y cambio de contraseña con tokens de una hora y consumo único; revocación de sesiones al restablecer.
 - Correo SMTP en cola PostgreSQL pg-boss con reintentos; Mailpit solo en desarrollo/CI.
 - Google/Apple OAuth con estado de un uso, nonce, PKCE Google, firmas OIDC y callback POST Apple. Botones conectados. Sin credenciales, acceso desactivado. No se vinculan cuentas automáticamente por correo.
@@ -17,6 +17,7 @@ Actualizado: 2026-11-01. Rama: `feat/backend-admin-production`, basada en `origi
 ## Evidencia ejecutada localmente
 
 - Typecheck de web/API/admin y compilaciones API/admin correctos; las imágenes también compilan la web.
+- Trivy 0.76.0 sobre las cinco imágenes: sin HIGH/CRITICAL con corrección disponible. Se actualizó el backend nuevo a NestJS 12.3.2/Fastify 5.12.7 porque Nest 11 fijaba Fastify vulnerable; en PostgreSQL se parchearon brotli/libcurl y se reemplazó gosu (runtime Go vulnerable) por su-exec 0.3. El backend usa ESM, con instalación limpia y pruebas repetidas.
 - Hadolint: Dockerfiles API, admin y PostgreSQL correctos.
 - Reglas de plataforma sobre `compose.prod.yml`: correctas; ningún `ports:`/`build:`, todos los servicios con límites, hardening y healthcheck.
 - Arranque completo del Compose de desarrollo con web/API/admin/PostgreSQL/Mailpit/gateway.

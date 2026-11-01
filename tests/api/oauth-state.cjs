@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-require("./dist/main.js");
+void import("./dist/main.js");
 (async () => {
   const root = "http://127.0.0.1:3001/api/auth/oauth/";
   for (let i = 0; i < 50; i++) {

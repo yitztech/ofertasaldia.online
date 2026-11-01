@@ -1,8 +1,8 @@
 import { All, Controller, Get, Param, Req, Res } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { Database } from "./database";
-import { AuthService, problem } from "./auth";
+import { Database } from "./database.js";
+import { AuthService, problem } from "./auth.js";
 
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");

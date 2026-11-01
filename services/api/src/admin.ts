@@ -2,8 +2,8 @@ import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { AuthService, problem } from "./auth";
-import { Database } from "./database";
+import { AuthService, problem } from "./auth.js";
+import { Database } from "./database.js";
 const idSchema = z.uuid();
 function filters(query: unknown) {
   const parsed = z

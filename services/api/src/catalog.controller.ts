@@ -1,5 +1,5 @@
 import { Controller, Get, HttpException, Query } from "@nestjs/common";
-import { Database } from "./database";
+import { Database } from "./database.js";
 
 @Controller("api")
 export class CatalogController {

@@ -1,5 +1,5 @@
-import { Problems } from "./problems";
-import { AdminController } from "./admin";
+import { Problems } from "./problems.js";
+import { AdminController } from "./admin.js";
 import "reflect-metadata";
 import {
   Controller,
@@ -13,13 +13,13 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { Database, CURRENT_SCHEMA_VERSION } from "./database";
-import { migrate } from "./migrations";
-import { CatalogController } from "./catalog.controller";
+import { Database, CURRENT_SCHEMA_VERSION } from "./database.js";
+import { migrate } from "./migrations.js";
+import { CatalogController } from "./catalog.controller.js";
 import cookie from "@fastify/cookie";
-import { AuthController, AuthService } from "./auth";
-import { MailService } from "./mail";
-import { OAuthController } from "./oauth";
+import { AuthController, AuthService } from "./auth.js";
+import { MailService } from "./mail.js";
+import { OAuthController } from "./oauth.js";
 
 @Controller()
 class HealthController {

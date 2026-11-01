@@ -12,8 +12,8 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { hash, verify } from "argon2";
 import { z } from "zod";
-import { Database } from "./database";
-import { MailService } from "./mail";
+import { Database } from "./database.js";
+import { MailService } from "./mail.js";
 
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
