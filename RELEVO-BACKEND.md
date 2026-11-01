@@ -49,6 +49,10 @@ Lo que se comprobó (hechos, con evidencia), y lo que cambia del plan de abajo.
   medición.
 - UX OAuth: los errores del callback devuelven JSON al navegador en vez de volver a `/entrar` con un mensaje.
 
+### Avance (rama `fix/api-endurecimiento`, PR #6)
+
+Hecho y probado en local con el compose de producción + CI (`tests/api/hardening.cjs`, además de oauth/recovery/production-proxy): Argon2id con mínimos OWASP, hash de relleno único y máximo 2 hashes simultáneos (12 logins concurrentes: todos 401, API a ~59 MiB de 384); límite de intentos solo por IP en `reset`/OAuth y `x-real-ip` vacío; `errors[]` por campo en los 422 de auth; `X-Request-ID` y log JSON por petición. Pendiente de esta lista: OpenAPI, pruebas de autorización por endpoint, estructura de la parte 3, UUIDv7, OAuth con errores amigables, medición de `statement_timeout`.
+
 ### Orden propuesto
 
 1. PR «CI: mailpit sin root y solo-pruebas» → aprobación → merge → comprobar publicación/despliegue y salud.
