@@ -1,4 +1,8 @@
 services:
   mailpit:
     image: axllent/mailpit:v1.28
+    # Sin root: la prueba de humo exige id -u distinto de 0 en todos los servicios
+    user: "65534:65534"
+    labels:
+      ofertasaldia.solo-pruebas: "true"
     networks: [backend]
