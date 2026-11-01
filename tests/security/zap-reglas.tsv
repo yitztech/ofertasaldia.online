@@ -1,3 +1,6 @@
 10049	IGNORE	(Páginas públicas cacheables a propósito)
 10055	IGNORE	(style-src 'unsafe-inline' por los <style> de las páginas e img-src https: para imágenes externas; revisarlo al cambiar la CSP)
 90004	IGNORE	(Sin COEP: bloquearía el script de Umami y los recursos de terceros; no se usa SharedArrayBuffer)
+10027	IGNORE	(Comentarios en el JavaScript de terceros empaquetado, p. ej. jsx-runtime de React; no hay comentarios propios con datos sensibles)
+10031	IGNORE	(Falso positivo: los formularios devuelven al campo lo que escribió la persona y React lo escapa como atributo; no hay HTML sin escapar)
+10202	IGNORE	(Sin tokens CSRF a propósito: AGENTS §24 protege con cookie SameSite=Lax y comprobación del Origin en cada petición que cambia estado)

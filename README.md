@@ -12,7 +12,8 @@ AGENTS.md, CLAUDE.md      # estándares de desarrollo (frontend y backend) para 
 compose.prod.yml          # producción en Coolify: gateway + web (+ PostgreSQL comentado)
 nginx/nginx.conf          # nginx sin root y de solo lectura, común a gateway y web
 gateway/                  # nginx delante de todo: IP real, cabeceras, X-Request-ID, /version.json, Umami
-web/                      # página "Próximamente": sustituir por la aplicación del cliente
+web/Dockerfile            # imagen de producción de apps/web (Node, puerto 3000)
+apps/web/                 # la aplicación: React Router 8 (SSR) + Tailwind + shadcn/ui
 .github/workflows/deploy.yml   # verificar → publicar en GHCR → webhook de Coolify → comprobar el SHA servido
 .github/scripts/reglas-compose.sh   # reglas de la plataforma sobre el compose (las usa `Verificar`)
 ```
@@ -54,7 +55,7 @@ prueba, en el `env:` del workflow. Las acciones de terceros van fijadas por comm
    privados, y así pueden quedarse: el alta hace `docker login ghcr.io` en el servidor.
 2. **`TRUSTED_PROXY_CIDR`**: tras el primer arranque, medir la subred de Traefik en la red de la app y ponerla en
    la ficha del cliente (infra-ionos-vps, `docs/OPERACION.md` §4.3).
-3. **La aplicación**: sustituir `web/` por la aplicación real. Si escucha en otro puerto o hay más servicios
+3. **La aplicación**: vive en `apps/web` y `web/Dockerfile` la empaqueta (escucha en el 3000). Si hay más servicios
    (API, panel), ajustar los `upstream` y las `location` de `gateway/default.conf.template`. Las variables que
    pone el alta (`SMTP_*`, `MAIL_FROM`, `LISTMONK_*`, `UMAMI_*`, `SITE_URL`) se añaden al `environment` del
    servicio que las use. Los secretos (`POSTGRES_PASSWORD`, claves de la app) se declaran en la ficha con
@@ -70,3 +71,5 @@ docker run -d --rm --name web --network prueba --read-only --tmpfs /tmp prueba-w
 docker run --rm -p 8080:80 --network prueba --read-only --tmpfs /tmp -e TRUSTED_PROXY_CIDR=127.0.0.1/32 prueba-gateway
 # http://localhost:8080
 ```
+
+Sin Docker, para desarrollar: `cd apps/web && pnpm install && pnpm dev`.
