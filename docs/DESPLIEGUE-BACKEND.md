@@ -19,7 +19,7 @@ La prueba crea usuarios QA en la base local y promueve solamente su fixture a ad
 
 Variables obligatorias: `IMAGE_PREFIX`, `TRUSTED_PROXY_CIDR`, `SITE_URL`, `POSTGRES_PASSWORD`, `APP_DATABASE_PASSWORD`, `SMTP_HOST`, `MAIL_FROM`. SMTP usa también `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER` y `SMTP_PASSWORD`. Ver `.env.example`. No usar el SMTP de pruebas en producción.
 
-El 2026-11-01 se configuraron las dos contraseñas nuevas en Coolify para `ofertasaldia-web`. Sus copias están en `~/.ansible/secretos-clientes/ofertasaldia/app_postgres_root` y `app_postgres_app`, con permisos 0600. No incluir esos archivos en Git. El SMTP y dominio ya existían en Coolify. No se verificó entrega SMTP real. Registrar estas variables también en el proceso de aprovisionamiento de la plataforma para conservar la fuente de verdad.
+El 2026-11-01 se configuraron las dos contraseñas nuevas en Coolify para `ofertasaldia-web`. Sus copias están en `~/.ansible/secretos-clientes/ofertasaldia/app_postgres_root` y `app_postgres_app`, con permisos 0600. No incluir esos archivos en Git. El SMTP y dominio ya existían en Coolify. Se verificaron conexión y autenticación SMTP sin enviar mensajes; la entrega real sigue pendiente. Registrar estas variables también en el proceso de aprovisionamiento de la plataforma para conservar la fuente de verdad.
 
 OAuth es opcional hasta configurar sus credenciales: ver `OAUTH.md`. Ningún secreto llega al código cliente.
 

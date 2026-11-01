@@ -25,6 +25,7 @@ Actualizado: 2026-11-01. Rama: `feat/backend-admin-production`, basada en `origi
 - `tests/api/oauth.cjs`: rechazos seguros sin credenciales. `oauth-state.cjs`: inicio Google con cliente ficticio, PKCE/nonce/cookie, estado inválido, código inválido y rechazo de replay. Pasaron; no equivalen a login real con proveedores.
 - `tests/e2e/forms.cjs`: 16 controles pasados, Chromium visible, escritorio 1280×900 y móvil 390×844; registro y aceptación de términos, login, recuperación/correo, restablecimiento, revocación, token reutilizado, permisos admin, listado, activación manual, suspensión, auditoría, catálogo, ausencia de errores JS y overflow de página. Ver `tests/e2e/results/forms.json` y capturas `admin-desktop.png`, `admin-mobile.png` (ignorados por Git, artefactos CI).
 - `tests/api/production-proxy.cjs`: registro/login a través del gateway simulando Traefik HTTPS; redirecciones 302 y cookie `__Host-session`, Secure, HttpOnly, SameSite=Lax verificadas.
+- SMTP real de Coolify: conexión y autenticación verificadas con `nodemailer.verify()` sin enviar mensajes. La entrega real sigue pendiente.
 - Dump PostgreSQL y restauración en `restore_check` local: migraciones hasta 7 y usuarios conservados. No demuestra backup remoto ni recuperación del VPS.
 
 Las pruebas se repiten cuando hay cambios posteriores relevantes; registrar aquí el resultado final del CI y despliegue antes de declarar publicación.
