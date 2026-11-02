@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AuthService, problem } from "./auth.js";
 import { Database } from "./database.js";
+import { uuidv7 } from "./uuid.js";
 const idSchema = z.uuid();
 function filters(query: unknown) {
   const parsed = z
@@ -119,7 +119,7 @@ export class AdminController {
       await c.query(
         "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
         [
-          randomUUID(),
+          uuidv7(),
           actor.id,
           data.data.suspended ? "user_suspended" : "user_reactivated",
           id,
@@ -165,11 +165,11 @@ export class AdminController {
       );
       await c.query(
         "INSERT INTO subscriptions(id,user_id,starts_at,expires_at) VALUES ($1,$2,now(),$3)",
-        [randomUUID(), id, data.data.expiresAt],
+        [uuidv7(), id, data.data.expiresAt],
       );
       await c.query(
         "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
-        [randomUUID(), actor.id, "subscription_activated", id],
+        [uuidv7(), actor.id, "subscription_activated", id],
       );
       await c.query("COMMIT");
     } catch (e) {

@@ -5,12 +5,13 @@ import {
   HttpException,
 } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
+import { uuidv7 } from "./uuid.js";
 @Catch()
 export class Problems implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const request = host.switchToHttp().getRequest<FastifyRequest>();
     const reply = host.switchToHttp().getResponse<FastifyReply>();
+    if (reply.sent) return;
     const status = error instanceof HttpException ? error.getStatus() : 500;
     if (request.url.split("?")[0] === "/api/health")
       return reply.code(503).send({ status: "error" });
@@ -21,7 +22,7 @@ export class Problems implements ExceptionFilter {
     const requestId =
       typeof header === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(header)
         ? header
-        : randomUUID();
+        : uuidv7();
     if (status >= 500)
       console.error(
         JSON.stringify({

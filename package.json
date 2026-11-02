@@ -1,0 +1,12 @@
+{
+  "name": "ofertasaldia",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/test-all.mjs",
+    "test:unit": "node scripts/check-test-only.mjs && node tests/api/openapi-contract.cjs",
+    "test:api": "node tests/api/authorization.cjs",
+    "typecheck": "pnpm -C services/api typecheck && pnpm -C apps/web typecheck && pnpm -C apps/admin typecheck"
+  }
+}

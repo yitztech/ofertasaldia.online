@@ -9,11 +9,12 @@ import {
   HttpException,
 } from "@nestjs/common";
 import type { FastifyRequest, FastifyReply } from "fastify";
-import { randomBytes, randomUUID, createHash } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { hash, verify } from "argon2";
 import { z } from "zod";
 import { Database } from "./database.js";
 import { MailService } from "./mail.js";
+import { uuidv7 } from "./uuid.js";
 
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -287,7 +288,7 @@ export class AuthController {
       );
     await this.auth.rateLimit(request, parsed.data.email);
     const passwordHash = await hashPassword(parsed.data.password);
-    const id = randomUUID();
+    const id = uuidv7();
     const result = await this.db.pool.query(
       `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING id`,
       [

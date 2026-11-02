@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const api = "http://127.0.0.1:3001";
+const api = process.env.API_URL || "http://127.0.0.1:3001";
 const headers = (ip, extra = {}) => ({
   "content-type": "application/json",
   origin: process.env.SITE_URL,

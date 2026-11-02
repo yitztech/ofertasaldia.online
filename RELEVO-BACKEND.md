@@ -63,6 +63,20 @@ Hecho y probado en local con el compose de producción + CI (`tests/api/hardenin
   - `tests/api/recovery.cjs`: valida que `register` genera sesión y cookie.
   - `tests/e2e/forms.cjs`: valida en navegador que registro y login redirigen a `/`, muestran la cuenta en cabecera ("Cuenta de María Pérez") y permiten entrar al panel desde ella.
 
+### Avance (rama `feat/estandares-openapi-auth-ux`)
+
+- **UUIDv7 (§21)**: Implementado generador centralizado RFC 9562 con fallback nativo (`services/api/src/uuid.ts`). Reemplazado `randomUUID()` (v4) en creación de usuarios, suscripciones, registros de auditoría y solicitudes.
+- **UX en Callback de OAuth**: Ante errores o cancelaciones en flujos iniciados desde el navegador, redirige a `/entrar?error=<código>` en lugar de emitir un error JSON plano. `apps/web/app/routes/entrar.tsx` maneja el estado mostrando alertas claras y accesibles (`role="alert"`).
+- **Especificación y Contrato OpenAPI 3.1 (§33/§32)**:
+  - Documentación completa de endpoints, esquemas y Problem Details (RFC 9457) expuesta en `/api/openapi.json` y respaldada en `docs/openapi.json`.
+  - Nueva prueba automatizada `tests/api/openapi-contract.cjs` que valida el contrato contra el esquema y el endpoint vivo.
+- **Pruebas Sistemáticas de Autorización (§32)**:
+  - Nueva prueba `tests/api/authorization.cjs`: verifica respuestas 401 para peticiones anónimas a rutas protegidas y 403 para usuarios sin rol de administración en `/api/admin/*`.
+- **Estructura de Pruebas y Scripts de Plataforma (Parte 3, §35–§37)**:
+  - `scripts/check-test-only.mjs`: comprueba que ningún servicio exclusivo de pruebas (`mailpit`) se filtre a `compose.prod.yml`, Dockerfiles o workflows de despliegue.
+  - `package.json` raíz y `scripts/test-all.mjs`: comandos estandarizados `npm test`, `npm run test:unit`, `npm run test:api`, `npm run typecheck` con resumen de ejecución y tiempos.
+- Verificación completa en local con Docker Compose (`compose.dev.yml`), suites de API y E2E Chromium (`tests/e2e/forms.cjs` con 17 comprobaciones exitosas).
+
 ### Orden propuesto
 
 1. PR «CI: mailpit sin root y solo-pruebas» → aprobación → merge → comprobar publicación/despliegue y salud.
