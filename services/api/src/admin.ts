@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthService, problem } from "./auth.js";
 import { Database } from "./database.js";
+import { MaintenanceService } from "./maintenance.js";
 import { uuidv7 } from "./uuid.js";
 const idSchema = z.uuid();
 function filters(query: unknown) {
@@ -35,6 +36,7 @@ export class AdminController {
   constructor(
     private readonly db: Database,
     private readonly auth: AuthService,
+    private readonly maintenance: MaintenanceService,
   ) {}
   private async admin(request: FastifyRequest) {
     const user = await this.auth.user(request);
@@ -179,5 +181,17 @@ export class AdminController {
       c.release();
     }
     return { status: "ok" };
+  }
+  @Post("maintenance/purge")
+  @HttpCode(200)
+  async purge(@Req() request: FastifyRequest) {
+    const actor = await this.admin(request);
+    this.auth.csrf(request);
+    const purged = await this.maintenance.purgeExpiredRecords();
+    await this.db.pool.query(
+      "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
+      [uuidv7(), actor.id, "maintenance_purge", actor.id],
+    );
+    return { status: "ok", purged };
   }
 }

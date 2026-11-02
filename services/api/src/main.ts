@@ -20,6 +20,7 @@ import { CatalogController } from "./catalog.controller.js";
 import cookie from "@fastify/cookie";
 import { AuthController, AuthService } from "./auth.js";
 import { MailService } from "./mail.js";
+import { MaintenanceService } from "./maintenance.js";
 import { OAuthController } from "./oauth.js";
 
 @Controller()
@@ -54,7 +55,7 @@ class HealthController {
     AdminController,
     OAuthController,
   ],
-  providers: [Database, AuthService, MailService],
+  providers: [Database, AuthService, MailService, MaintenanceService],
 })
 class AppModule {}
 

@@ -148,4 +148,9 @@ Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Plan 
 - **OpenAPI 3.1**: Respuestas `409 Conflict` agregadas a `services/api/src/openapi.ts` y `docs/openapi.json`.
 - **Verificación**: `npm test` verde (unit, openapi, typecheck); pruebas en contenedor API (`hardening.cjs`, `recovery.cjs`, `authorization.cjs`, `oauth.cjs`) y Playwright E2E (`forms.cjs` con 18 checks) 100% pasando.
 
+### Sesión 2 de Seguridad completada (2026-11-02, PR #8)
+- **Purga periódica y al arranque**: `MaintenanceService` en `services/api/src/maintenance.ts` purga `auth_attempts`, `password_tokens`, `sessions` y `oauth_flows` vencidos en el arranque y programa tarea horaria recurrente en `pg-boss` (`0 * * * *`). Expuesto endpoint protegido `POST /api/admin/maintenance/purge` con registro en `admin_audit`.
+- **Resiliencia de PostgreSQL**: Pool configurado en `services/api/src/database.ts` con `max: 8`, `connectionTimeoutMillis: 2500` y `statement_timeout: 2000`. Cero errores 500/503 bajo ráfagas concurrentes.
+- **Verificación**: Nueva suite `tests/api/maintenance.cjs` (15 peticiones concurrentes y prueba de ciclo de vida de registros temporales); OpenAPI 3.1 actualizado; `npm test` y pruebas E2E pasando.
+
 Los archivos `.impeccable/`, `DESIGN.md`, `PRODUCT.md`, sus equivalentes en `apps/web` y `design/` ya estaban sin seguimiento; se preservaron y no forman parte del cambio.

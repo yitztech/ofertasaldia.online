@@ -7,9 +7,10 @@ export const CURRENT_SCHEMA_VERSION = 7;
 export class Database implements OnApplicationShutdown {
   readonly pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 5,
-    connectionTimeoutMillis: 500,
-    statement_timeout: 500,
+    max: 8,
+    connectionTimeoutMillis: 2500,
+    statement_timeout: 2000,
+    idleTimeoutMillis: 30000,
   });
 
   async onApplicationShutdown() {

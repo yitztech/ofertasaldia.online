@@ -131,8 +131,8 @@ Fortalecer la confianza en la IP de origen y asegurar que los correos registrado
 |---|---|---|---|
 | Sesión 1: Rate limit por tupla (IP, cuenta) | Completada | 2026-11-02 | Clave `[ip, ip:cuenta]`, solo incrementa en credenciales incorrectas |
 | Sesión 1: 409 Conflict en registro duplicado | Completada | 2026-11-02 | RFC 9457 `account_already_exists`, alerta y enlaces en `registro.tsx` |
-| Sesión 2: Cron de purga de tablas temporales | Pendiente | — | — |
-| Sesión 2: Calibración de timeouts de PostgreSQL | Pendiente | — | — |
+| Sesión 2: Cron de purga de tablas temporales | Completada | 2026-11-02 | `MaintenanceService` con cron pg-boss y purga al arranque |
+| Sesión 2: Calibración de timeouts de PostgreSQL | Completada | 2026-11-02 | Pool max: 8, connectionTimeout: 2500ms, statement_timeout: 2000ms |
 | Sesión 3: Bloqueo de auto-suspensión de admin | Pendiente | — | — |
 | Sesión 4: Validación estricta de TRUSTED_PROXY | Pendiente | — | — |
 | Sesión 4: Verificación de buzón en registro | Pendiente | — | Marcada como obligatoria por el usuario |

@@ -47,6 +47,7 @@ const api = process.env.API_URL || "http://127.0.0.1:3001";
     "/api/admin/users",
     "/api/admin/products",
     "/api/admin/audit",
+    "/api/admin/maintenance/purge",
   ];
 
   for (const p of expectedPaths) {

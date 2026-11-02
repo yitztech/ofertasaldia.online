@@ -37,6 +37,7 @@ const headers = (extra = {}) => ({
     { method: "GET", path: "/api/admin/audit" },
     { method: "POST", path: "/api/admin/users/00000000-0000-7000-8000-000000000001/subscription", body: { expiresAt: new Date(Date.now() + 86400000).toISOString() } },
     { method: "POST", path: "/api/admin/users/00000000-0000-7000-8000-000000000001/suspension", body: { suspended: true } },
+    { method: "POST", path: "/api/admin/maintenance/purge", body: {} },
   ];
 
   for (const ep of endpointsProtegidos) {
@@ -88,6 +89,7 @@ const headers = (extra = {}) => ({
     { method: "GET", path: "/api/admin/audit" },
     { method: "POST", path: "/api/admin/users/00000000-0000-7000-8000-000000000001/subscription", body: { expiresAt: new Date(Date.now() + 86400000).toISOString() } },
     { method: "POST", path: "/api/admin/users/00000000-0000-7000-8000-000000000001/suspension", body: { suspended: true } },
+    { method: "POST", path: "/api/admin/maintenance/purge", body: {} },
   ];
 
   for (const ep of adminEndpoints) {

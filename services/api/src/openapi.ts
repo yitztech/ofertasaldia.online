@@ -572,6 +572,40 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/admin/maintenance/purge": {
+      post: {
+        summary: "Ejecutar purga manual de registros vencidos",
+        operationId: "purgeExpiredRecords",
+        responses: {
+          "200": {
+            description: "Purga completada con éxito",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "purged"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    purged: {
+                      type: "object",
+                      required: ["authAttempts", "passwordTokens", "sessions", "oauthFlows"],
+                      properties: {
+                        authAttempts: { type: "integer" },
+                        passwordTokens: { type: "integer" },
+                        sessions: { type: "integer" },
+                        oauthFlows: { type: "integer" },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
   },
   components: {
     schemas: {
