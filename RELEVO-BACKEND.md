@@ -140,6 +140,12 @@ La cuenta inicial de administrador se crea registrando un correo controlado y ej
 
 ## Continuación
 
-Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Ejecutar E2E desde la raíz con `node tests/e2e/forms.cjs` después de instalar Playwright en `tests/e2e` y arrancar el Compose dev. Nunca apuntar la prueba con fixtures de administrador a producción.
+Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Plan de seguridad por sesiones: `docs/PLAN-SEGURIDAD.md`. Ejecutar E2E desde la raíz con `node tests/e2e/forms.cjs` después de instalar Playwright en `tests/e2e` y arrancar el Compose dev. Nunca apuntar la prueba con fixtures de administrador a producción.
+
+### Sesión 1 de Seguridad completada (2026-11-02, PR #8)
+- **Rate limiting anti-DoS**: Clave de intentos estructurada por tupla `[ip, ip:cuenta]` en `services/api/src/auth.ts`. Los intentos fallidos solo se incrementan en fallos de credenciales (`recordFailedLogin`), y se limpian con `clearLoginFailures` tras autenticación correcta. Un atacante en una IP no puede bloquear la cuenta de una víctima en otra IP.
+- **Registro anti-enumeración (409 Conflict)**: `POST /api/auth/register` responde 409 con RFC 9457 `account_already_exists` ante colisión de correo. `apps/web/app/routes/registro.tsx` muestra banner accesible con enlaces a `/entrar` y `/recuperar` y marca el campo de correo en rojo.
+- **OpenAPI 3.1**: Respuestas `409 Conflict` agregadas a `services/api/src/openapi.ts` y `docs/openapi.json`.
+- **Verificación**: `npm test` verde (unit, openapi, typecheck); pruebas en contenedor API (`hardening.cjs`, `recovery.cjs`, `authorization.cjs`, `oauth.cjs`) y Playwright E2E (`forms.cjs` con 18 checks) 100% pasando.
 
 Los archivos `.impeccable/`, `DESIGN.md`, `PRODUCT.md`, sus equivalentes en `apps/web` y `design/` ya estaban sin seguimiento; se preservaron y no forman parte del cambio.
