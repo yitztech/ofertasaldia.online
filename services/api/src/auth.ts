@@ -141,14 +141,14 @@ export class AuthService {
       sameSite: "lax" as const,
     };
   }
-  async rateLimit(request: FastifyRequest, account?: string) {
-    // Ambas claves se limitan por separado; nginx sobrescribe la cabecera de la IP.
-    // Sin cuenta (restablecer, inicio de OAuth) solo cuenta la IP: una clave fija
-    // bloquearía a todo el mundo.
+  getIp(request: FastifyRequest): string {
     const header = request.headers["x-real-ip"];
-    const ip =
-      (typeof header === "string" ? header.trim() : "") || request.ip;
-    for (const key of [ip, ...(account ? [account.toLowerCase()] : [])]) {
+    return (typeof header === "string" ? header.trim() : "") || request.ip;
+  }
+  async rateLimit(request: FastifyRequest, account?: string) {
+    const ip = this.getIp(request);
+    const keys = [ip, ...(account ? [`${ip}:${account.toLowerCase()}`] : [])];
+    for (const key of keys) {
       const result = await this.db.pool.query(
         `INSERT INTO auth_attempts(key,attempts,window_start) VALUES ($1,1,now()) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN auth_attempts.window_start<now()-interval '15 minutes' THEN 1 ELSE auth_attempts.attempts+1 END,window_start=CASE WHEN auth_attempts.window_start<now()-interval '15 minutes' THEN now() ELSE auth_attempts.window_start END RETURNING attempts`,
         [digest(key)],
@@ -160,6 +160,36 @@ export class AuthService {
           "Espera 15 minutos antes de intentarlo nuevamente.",
         );
     }
+  }
+  async checkLoginRateLimit(request: FastifyRequest, account: string) {
+    const ip = this.getIp(request);
+    for (const key of [ip, `${ip}:${account.toLowerCase()}`]) {
+      const result = await this.db.pool.query(
+        `SELECT attempts, window_start FROM auth_attempts WHERE key=$1`,
+        [digest(key)],
+      );
+      if (result.rows[0]) {
+        const isFresh =
+          Date.now() - new Date(result.rows[0].window_start).getTime() <
+          15 * 60 * 1000;
+        if (isFresh && result.rows[0].attempts >= 20) {
+          problem(
+            429,
+            "rate_limited",
+            "Espera 15 minutos antes de intentarlo nuevamente.",
+          );
+        }
+      }
+    }
+  }
+  async recordFailedLogin(request: FastifyRequest, account: string) {
+    await this.rateLimit(request, account);
+  }
+  async clearLoginFailures(request: FastifyRequest, account: string) {
+    const ip = this.getIp(request);
+    await this.db.pool.query("DELETE FROM auth_attempts WHERE key=$1", [
+      digest(`${ip}:${account.toLowerCase()}`),
+    ]);
   }
 }
 @Controller("api/auth")
@@ -298,17 +328,29 @@ export class AuthController {
         passwordHash,
       ],
     );
-    if (result.rows[0]) {
-      const token = randomBytes(32).toString("base64url");
-      await this.db.pool.query(
-        `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')`,
-        [digest(token), result.rows[0].id],
+    if (!result.rows[0]) {
+      problem(
+        409,
+        "account_already_exists",
+        "Ya existe una cuenta con este correo electrónico.",
+        [
+          {
+            field: "email",
+            code: "already_exists",
+            message: "Ya existe una cuenta con este correo.",
+          },
+        ],
       );
-      reply.setCookie(this.auth.cookieName(), token, {
-        ...this.auth.cookieOptions(),
-        maxAge: 604800,
-      });
     }
+    const token = randomBytes(32).toString("base64url");
+    await this.db.pool.query(
+      `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')`,
+      [digest(token), result.rows[0].id],
+    );
+    reply.setCookie(this.auth.cookieName(), token, {
+      ...this.auth.cookieOptions(),
+      maxAge: 604800,
+    });
     return { status: "ok" };
   }
   @Post("login")
@@ -326,20 +368,20 @@ export class AuthController {
         "Revisa el correo y la contraseña.",
         fieldErrors(parsed.error),
       );
-    await this.auth.rateLimit(request, parsed.data.email);
+    await this.auth.checkLoginRateLimit(request, parsed.data.email);
     const result = await this.db.pool.query(
       "SELECT id,password_hash FROM users WHERE lower(email)=lower($1) AND suspended_at IS NULL",
       [parsed.data.email],
     );
     const user = result.rows[0];
-    if (
-      !(await verifyPassword(
-        user?.password_hash ?? (await dummyHash()),
-        parsed.data.password,
-      )) ||
-      !user
-    )
+    const passwordValid =
+      user && (await verifyPassword(user.password_hash, parsed.data.password));
+    if (!passwordValid || !user) {
+      if (!user) await dummyHash();
+      await this.auth.recordFailedLogin(request, parsed.data.email);
       problem(401, "invalid_credentials", "Correo o contraseña incorrectos.");
+    }
+    await this.auth.clearLoginFailures(request, parsed.data.email);
     const token = randomBytes(32).toString("base64url");
     await this.db.pool.query(
       `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')`,

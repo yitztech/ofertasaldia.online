@@ -134,7 +134,7 @@ export const openApiSpec = {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["status", "requiresVerification"],
+                  required: ["status"],
                   properties: {
                     status: { type: "string", enum: ["ok"] },
                     requiresVerification: { type: "boolean" },
@@ -143,6 +143,7 @@ export const openApiSpec = {
               },
             },
           },
+          "409": { $ref: "#/components/responses/Conflict" },
           "422": { $ref: "#/components/responses/ValidationError" },
           "429": { $ref: "#/components/responses/RateLimited" },
         },
@@ -626,6 +627,12 @@ export const openApiSpec = {
       },
       NotFound: {
         description: "Recurso no encontrado (RFC 9457)",
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/ProblemDetails" } },
+        },
+      },
+      Conflict: {
+        description: "Conflicto con el estado actual del recurso (RFC 9457)",
         content: {
           "application/problem+json": { schema: { $ref: "#/components/schemas/ProblemDetails" } },
         },

@@ -49,6 +49,20 @@ const assert = require("node:assert/strict");
   assert.match(regCookie, /Secure/i);
   assert.match(regCookie, /SameSite=Lax/i);
 
+  const dupRegister = await fetch("http://gateway/registro", {
+    method: "POST",
+    redirect: "manual",
+    headers,
+    body: new URLSearchParams({
+      nombre: "María Pérez",
+      correo: email,
+      contrasena: "OtherPassword123!",
+      terminos: "on",
+    }),
+  });
+  assert.equal(dupRegister.status, 200, "registro duplicado no redirige; muestra error en el formulario");
+  assert.ok(!dupRegister.headers.get("set-cookie"), "registro duplicado no debe emitir cookie de sesión");
+
   const loginDefault = await fetch("http://gateway/entrar", {
     method: "POST",
     redirect: "manual",

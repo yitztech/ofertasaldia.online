@@ -81,6 +81,22 @@ function mail(email) {
     await page.waitForURL((url) => url.pathname === "/");
     await page.getByLabel("Cuenta de María Pérez").waitFor();
     checks.push("registro redirige a portada logueado");
+    // Registro duplicado muestra alerta accesible y no crea nueva sesión
+    await page.goto(root + "/registro");
+    await page.locator("#nombre").fill("María Pérez Duplicada");
+    await page.locator("#correo").fill(email);
+    await page.locator("#contrasena").fill("OtraPassword123!");
+    await page.locator("[name=terminos]").check();
+    await page
+      .getByRole("button", { name: "Crear cuenta", exact: true })
+      .click();
+    await page
+      .getByRole("alert")
+      .filter({ hasText: "Ya existe una cuenta con este correo" })
+      .first()
+      .waitFor();
+    await page.locator("#correo-error").waitFor();
+    checks.push("registro duplicado muestra alerta accesible y error de campo");
     await page.goto(root + "/entrar");
     await page.locator("#correo").fill(email);
     await page.locator("#contrasena").fill("Wrong123!");

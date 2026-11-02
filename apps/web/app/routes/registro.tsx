@@ -44,6 +44,22 @@ export async function action({ request }: Route.ActionArgs) {
       for (const cookie of response.headers.getSetCookie()) headers.append("Set-Cookie", cookie);
       return redirect("/", { headers });
     }
+    if (response.status === 409) {
+      return {
+        errores: { ...errores, correo: "Ya existe una cuenta con este correo electrónico." } as Record<string, string>,
+        nombre,
+        correo,
+        cuentaExistente: true,
+      };
+    }
+    if (response.status === 429) {
+      return {
+        errores: {} as Record<string, string>,
+        nombre,
+        correo,
+        limiteExcedido: true,
+      };
+    }
   } catch { /* El formulario conserva los datos ante fallos de conexión. */ }
   return { errores, nombre, correo, noDisponible: true };
 }
@@ -74,7 +90,33 @@ export default function Registro() {
       subtituloTarjeta="Es rápido y gratuito"
     >
       <Form method="post" noValidate className="flex flex-col gap-4">
-        {resultado?.noDisponible ? <Alert role="alert"><AlertDescription>No se pudo crear la cuenta. Revisa los datos o inténtalo de nuevo.</AlertDescription></Alert> : null}
+        {resultado?.cuentaExistente ? (
+          <Alert role="alert" className="border-primary/50 bg-primary/10">
+            <AlertDescription>
+              Ya existe una cuenta con este correo electrónico.{" "}
+              <Link to="/entrar" className="font-semibold underline">
+                Inicia sesión
+              </Link>{" "}
+              o{" "}
+              <Link to="/recuperar" className="font-semibold underline">
+                recupera tu contraseña
+              </Link>
+              .
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {resultado?.limiteExcedido ? (
+          <Alert role="alert" variant="destructive">
+            <AlertDescription>
+              Demasiados intentos. Por favor espera 15 minutos antes de volver a intentarlo.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {resultado?.noDisponible && !resultado?.cuentaExistente && !resultado?.limiteExcedido ? (
+          <Alert role="alert">
+            <AlertDescription>No se pudo crear la cuenta. Revisa los datos o inténtalo de nuevo.</AlertDescription>
+          </Alert>
+        ) : null}
         <CampoTexto
           id="nombre"
           name="nombre"
