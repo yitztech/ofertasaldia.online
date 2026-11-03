@@ -27,6 +27,7 @@ import { PaymentsController, PaymentsService } from "./payments.js";
 import { ArticlesController, ArticlesService } from "./articles.js";
 import { ProfilesController, ProfilesService } from "./profiles.js";
 import { RedirectController } from "./redirect.js";
+import { FavoritesController } from "./favorites.js";
 
 @Controller()
 class HealthController {
@@ -63,6 +64,7 @@ class HealthController {
     ArticlesController,
     ProfilesController,
     RedirectController,
+    FavoritesController,
   ],
   providers: [
     Database,

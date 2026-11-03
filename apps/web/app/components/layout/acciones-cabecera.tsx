@@ -54,9 +54,11 @@ export function BotonIcono({
 }
 
 export const FavoritosBoton = () => (
-  <BotonIcono etiqueta="Favoritos">
-    <HeartIcon aria-hidden="true" />
-  </BotonIcono>
+  <Button asChild variant="ghost" size="icon" aria-label="Favoritos" className="relative rounded-full">
+    <Link to="/panel?pestana=guardados">
+      <HeartIcon aria-hidden="true" />
+    </Link>
+  </Button>
 );
 export const AvisosBoton = () => (
   <BotonIcono etiqueta="Avisos" punto>

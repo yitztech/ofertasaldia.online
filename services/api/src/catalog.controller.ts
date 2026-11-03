@@ -40,7 +40,18 @@ export class CatalogController {
 
   @Get("products")
   async products(@Query() query: Record<string, unknown>) {
-    const allowed = new Set(["q", "category", "platform", "limit", "cursor"]);
+    const allowed = new Set([
+      "q",
+      "category",
+      "platform",
+      "limit",
+      "cursor",
+      "minDiscount",
+      "minPriceCents",
+      "maxPriceCents",
+      "status",
+      "sort",
+    ]);
     const invalid = (detail: string): never => {
       throw new HttpException(
         {
@@ -69,12 +80,46 @@ export class CatalogController {
     const limit = query.limit === undefined ? 20 : Number(query.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       invalid("El límite debe estar entre 1 y 100.");
+    let minDiscount: number | null = null;
+    if (query.minDiscount !== undefined && query.minDiscount !== "") {
+      minDiscount = Number(query.minDiscount);
+      if (!Number.isInteger(minDiscount) || minDiscount < 0 || minDiscount > 99)
+        invalid("El descuento mínimo debe estar entre 0 y 99.");
+    }
+    let minPriceCents: number | null = null;
+    if (query.minPriceCents !== undefined && query.minPriceCents !== "") {
+      minPriceCents = Number(query.minPriceCents);
+      if (!Number.isInteger(minPriceCents) || minPriceCents < 0)
+        invalid("El precio mínimo no es válido.");
+    }
+    let maxPriceCents: number | null = null;
+    if (query.maxPriceCents !== undefined && query.maxPriceCents !== "") {
+      maxPriceCents = Number(query.maxPriceCents);
+      if (!Number.isInteger(maxPriceCents) || maxPriceCents < 0)
+        invalid("El precio máximo no es válido.");
+    }
+    const status = query.status ? String(query.status) : null;
+    if (status && !["active", "paused", "closed"].includes(status))
+      invalid("Estado de producto no válido.");
+    const sort = query.sort ? String(query.sort) : null;
+    const validSorts = ["recent", "discount", "price_asc", "price_desc", "rating"];
+    if (sort && !validSorts.includes(sort))
+      invalid("Orden no válido.");
+
     let cursor: string | null = null;
     if (query.cursor) {
       cursor = Buffer.from(String(query.cursor), "base64url").toString("utf8");
       if (!uuidSchema.safeParse(cursor).success)
         invalid("Cursor no válido.");
     }
+
+    let orderBy = "p.id ASC";
+    if (sort === "discount") orderBy = "COALESCE(p.discount_percentage, 0) DESC, p.id ASC";
+    else if (sort === "price_asc") orderBy = "p.price_cents ASC NULLS LAST, p.id ASC";
+    else if (sort === "price_desc") orderBy = "p.price_cents DESC NULLS LAST, p.id ASC";
+    else if (sort === "rating") orderBy = "COALESCE(p.rating, 0) DESC, p.id ASC";
+    else if (sort === "recent") orderBy = "p.updated_at DESC, p.id ASC";
+
     const result = await this.db.pool.query(
       `SELECT p.id, p.title, p.description, p.category_id AS "categoryId",
        c.name AS "categoryName", p.platform,
@@ -91,12 +136,16 @@ export class CatalogController {
        p.is_demo AS "isDemo"
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
-       WHERE ($1 = '' OR strpos(lower(p.title), lower($1)) > 0)
+       WHERE ($1 = '' OR strpos(lower(p.title), lower($1)) > 0 OR strpos(lower(COALESCE(p.description, '')), lower($1)) > 0)
        AND ($2::text IS NULL OR p.category_id = $2)
        AND ($3::text IS NULL OR p.platform = $3)
        AND ($4::uuid IS NULL OR p.id > $4::uuid)
-       ORDER BY p.id LIMIT $5`,
-      [text, category, platform, cursor, limit + 1],
+       AND ($6::int IS NULL OR COALESCE(p.discount_percentage, 0) >= $6)
+       AND ($7::bigint IS NULL OR p.price_cents >= $7)
+       AND ($8::bigint IS NULL OR p.price_cents <= $8)
+       AND ($9::text IS NULL OR p.status = $9)
+       ORDER BY ${orderBy} LIMIT $5`,
+      [text, category, platform, cursor, limit + 1, minDiscount, minPriceCents, maxPriceCents, status],
     );
     const items = result.rows.slice(0, limit);
     return {
@@ -106,6 +155,37 @@ export class CatalogController {
           ? Buffer.from(items[items.length - 1].id).toString("base64url")
           : null,
     };
+  }
+
+  @Get("products/suggestions")
+  async productSuggestions(@Query() query: Record<string, unknown>) {
+    return this.handleSuggestions(query);
+  }
+
+  @Get("buscar/sugerencias")
+  async buscarSugerencias(@Query() query: Record<string, unknown>) {
+    return this.handleSuggestions(query);
+  }
+
+  private async handleSuggestions(query: Record<string, unknown>) {
+    const text = typeof query.q === "string" ? query.q.trim() : "";
+    if ([...text].length > 100) {
+      problem(422, "validation_failed", "La búsqueda admite hasta 100 caracteres.");
+    }
+    const res = await this.db.pool.query(
+      `SELECT p.id, p.title, p.category_id AS "categoryId",
+              c.name AS "categoryName", p.platform,
+              p.price_cents::text AS "priceCents",
+              p.discount_percentage AS "discountPercentage"
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.status = 'active'
+         AND ($1 = '' OR strpos(lower(p.title), lower($1)) > 0 OR strpos(lower(COALESCE(c.name, '')), lower($1)) > 0)
+       ORDER BY COALESCE(p.discount_percentage, 0) DESC, p.id ASC
+       LIMIT 8`,
+      [text],
+    );
+    return { items: res.rows };
   }
 
   @Get("products/:id")

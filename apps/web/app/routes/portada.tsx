@@ -118,7 +118,7 @@ export default function Portada({ loaderData }: Route.ComponentProps) {
             id="titulo-ofertas"
             titulo={q ? `Resultados para “${q}”` : "Ofertas destacadas"}
             subtitulo="Productos recomendados por nuestra comunidad"
-            enlace={{ a: "/#ofertas", texto: "Ver todas las ofertas" }}
+            enlace={{ a: "/buscar", texto: "Ver todas las ofertas" }}
           />
           <div aria-busy={navegacion.state === "loading"}>
             <Suspense fallback={<TarjetasCargando className="grid-cols-2 md:grid-cols-3 xl:grid-cols-6" />}>

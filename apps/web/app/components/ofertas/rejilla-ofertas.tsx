@@ -6,11 +6,15 @@ import { TarjetaOferta } from "./tarjeta-oferta";
 export function RejillaOfertas({
   ofertas,
   boton,
+  alias,
+  favoritosMarcados = false,
   className,
   vacio,
 }: {
   ofertas: Oferta[];
   boton?: "marca" | "violeta";
+  alias?: string;
+  favoritosMarcados?: boolean;
   className?: string;
   vacio?: { titulo: string; descripcion: string; accion?: { texto: string; a: string } };
 }) {
@@ -28,7 +32,12 @@ export function RejillaOfertas({
       {ofertas.map((oferta) => (
         <li key={oferta.id} className="flex">
           <div className="w-full">
-            <TarjetaOferta oferta={oferta} boton={boton} />
+            <TarjetaOferta
+              oferta={oferta}
+              boton={boton}
+              alias={alias}
+              inicialFavorito={favoritosMarcados}
+            />
           </div>
         </li>
       ))}

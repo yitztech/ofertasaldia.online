@@ -22,12 +22,12 @@ interface Elemento {
 
 const principales: Elemento[] = [
   { texto: "Mi perfil", icono: UserIcon, activo: true },
-  { texto: "Mis productos", icono: PackageIcon },
+  { texto: "Mis productos", icono: PackageIcon, enlace: "/panel?pestana=productos" },
   { texto: "Mis reseñas y blog", icono: BookOpenIcon, enlace: "/panel/articulos" },
-  { texto: "Estadísticas", icono: ChartColumnIcon },
+  { texto: "Estadísticas", icono: ChartColumnIcon, enlace: "/panel?pestana=estadisticas" },
   { texto: "Planes y suscripción", icono: CreditCardIcon, enlace: "/planes" },
   { texto: "Mis colecciones", icono: BookmarkIcon },
-  { texto: "Favoritos", icono: HeartIcon },
+  { texto: "Favoritos", icono: HeartIcon, enlace: "/panel?pestana=guardados" },
 ];
 
 const secundarios: Elemento[] = [

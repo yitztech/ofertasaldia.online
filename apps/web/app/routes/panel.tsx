@@ -1,7 +1,7 @@
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Card } from "~/components/ui/card";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircleIcon, CheckCircleIcon, CrownIcon, ExternalLinkIcon, PlusIcon, SearchIcon, SparklesIcon } from "lucide-react";
 import { Suspense } from "react";
 import { Await, Form, Link, redirect, useActionData, useNavigation, useSearchParams } from "react-router";
@@ -12,6 +12,7 @@ import { EstadoError, EstadoVacio, TarjetasCargando } from "~/components/comun/e
 import { AvisosBoton, EnlaceParaAfiliados, MenuUsuario } from "~/components/layout/acciones-cabecera";
 import { Cabecera } from "~/components/layout/cabecera";
 import { Pie } from "~/components/layout/pie";
+import { RejillaOfertas } from "~/components/ofertas/rejilla-ofertas";
 import { BarraLateralPanel } from "~/components/panel/barra-lateral";
 import { CategoriasPrincipales } from "~/components/panel/categorias-principales";
 import { EnlaceAfiliado } from "~/components/panel/enlace-afiliado";
@@ -27,7 +28,7 @@ import { categorias } from "~/datos/categorias";
 import type { Afiliado, CategoriaId, EstadoProducto, ProductoPanel } from "~/datos/tipos";
 import { limites } from "~/lib/limites";
 import { buscarOfertas, ordenarOfertas, type Orden } from "~/lib/ofertas";
-import { panel } from "~/servicios/catalogo";
+import { catalogo, panel } from "~/servicios/catalogo";
 import { obtenerSuscripcion } from "~/servicios/payments.server";
 import { cn } from "~/utils";
 
@@ -124,6 +125,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   });
 
+  const favoritosData = await catalogo.favoritos(request.headers.get("cookie") ?? "");
+
   return {
     usuario,
     suscripcion,
@@ -134,6 +137,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     clics,
     categoriasPrincipales: panel.categoriasPrincipales(),
     productos,
+    guardados: favoritosData.ofertas,
   };
 }
 
@@ -573,14 +577,23 @@ function FormularioPerfil({
 }
 
 export default function Panel({ loaderData }: Route.ComponentProps) {
-  const { usuario, suscripcion, perfilApi, afiliado, conteos, resumen, clics, categoriasPrincipales, productos } = loaderData;
+  const { usuario, suscripcion, perfilApi, afiliado, conteos, resumen, clics, categoriasPrincipales, productos, guardados } = loaderData;
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const submitting = navigation.state === "submitting";
-  const [pestana, setPestana] = useState("productos");
   const [searchParams] = useSearchParams();
+  const pestanaUrl = searchParams.get("pestana");
+  const [pestana, setPestana] = useState(
+    pestanaUrl && pestanas.some((p) => p.id === pestanaUrl) ? pestanaUrl : "productos",
+  );
   const pagoStatus = searchParams.get("pago");
   const esProActivo = suscripcion?.status === "active" && suscripcion?.planId === "pro";
+
+  useEffect(() => {
+    if (pestanaUrl && pestanas.some((p) => p.id === pestanaUrl)) {
+      setPestana(pestanaUrl);
+    }
+  }, [pestanaUrl]);
 
   return (
     <>
@@ -643,6 +656,41 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
                     {(lista) => <ListaProductos productos={lista} conteos={conteos} />}
                   </Await>
                 </Suspense>
+              ) : pestana === "guardados" ? (
+                <section aria-labelledby="titulo-guardados-panel" className="flex flex-col gap-4">
+                  <div>
+                    <h2 id="titulo-guardados-panel" className="m-0 text-2xl font-extrabold tracking-tight">
+                      Ofertas guardadas en favoritos
+                    </h2>
+                    <p className="m-0 text-sm text-muted-foreground">
+                      Productos que marcaste con el corazón para revisar su historial de precios más tarde.
+                    </p>
+                  </div>
+                  <RejillaOfertas
+                    ofertas={guardados}
+                    favoritosMarcados
+                    className="grid-cols-2 md:grid-cols-3 2xl:grid-cols-4"
+                    vacio={{
+                      titulo: "Aún no tienes ofertas guardadas",
+                      descripcion: "Explora el catálogo y pulsa el icono de corazón en cualquier producto para guardarlo en tu cuenta.",
+                      accion: { texto: "Ir al buscador de ofertas", a: "/buscar" },
+                    }}
+                  />
+                </section>
+              ) : pestana === "estadisticas" ? (
+                <section aria-labelledby="titulo-estadisticas-panel" className="flex flex-col gap-4">
+                  <div>
+                    <h2 id="titulo-estadisticas-panel" className="m-0 text-2xl font-extrabold tracking-tight">
+                      Estadísticas de clics y conversión
+                    </h2>
+                    <p className="m-0 text-sm text-muted-foreground">
+                      Actividad registrada en tus enlaces de afiliado durante los últimos 30 días.
+                    </p>
+                  </div>
+                  <ResumenMes resumen={resumen} />
+                  <GraficaClics serie={clics} />
+                  <CategoriasPrincipales categorias={categoriasPrincipales} />
+                </section>
               ) : pestana === "sobre-mi" ? (
                 <FormularioPerfil
                   afiliado={afiliado}
