@@ -1,7 +1,7 @@
 import { categoriasPrincipales, carlos, clicsUltimos30Dias, coleccionesDeCarlos, conteosPanel, ofertasDeCarlos, productosPanel, resumenMes } from "~/datos/afiliado";
 import { categorias } from "~/datos/categorias";
 import { coleccionesPopulares, masVendidos, ofertasDestacadas } from "~/datos/marketplace";
-import type { CategoriaId, Oferta, PlataformaId } from "~/datos/tipos";
+import type { Afiliado, CategoriaId, Coleccion, Oferta, PlataformaId, RangoPrecioId } from "~/datos/tipos";
 import { buscarOfertas } from "~/lib/ofertas";
 
 const API_URL = process.env.API_URL ?? "http://api:3001";
@@ -117,11 +117,112 @@ export const catalogo = {
   masVendidos: async () => masVendidos,
 };
 
+interface ApiPublicProfile {
+  profile: {
+    alias: string;
+    nombre: string;
+    avatar: string;
+    coverUrl?: string | null;
+    verificado: boolean;
+    descripcion: string;
+    redes: Array<{ red: "youtube" | "instagram" | "tiktok" | "enlace"; url: string }>;
+    ubicacion: string;
+    miembroDesde: string;
+    estadisticas: {
+      seguidores: string;
+      productos: number;
+      colecciones: number;
+      valoracion: number;
+    };
+    categorias: Array<{ id: CategoriaId; nombre: string; productos: number }>;
+    conteoPlataformas: Record<PlataformaId, number>;
+    conteoPrecios: Array<{ id: RangoPrecioId; etiqueta: string; productos: number }>;
+    accentColor?: string;
+  };
+  products: ApiProduct[];
+  collections: Coleccion[];
+}
+
 export const afiliados = {
-  porAlias: async (alias: string) =>
-    alias === carlos.alias
-      ? { afiliado: carlos, ofertas: ofertasDeCarlos, colecciones: coleccionesDeCarlos }
-      : null,
+  porAlias: async (
+    alias: string,
+  ): Promise<{
+    afiliado: Afiliado;
+    ofertas: Oferta[];
+    colecciones: Coleccion[];
+  } | null> => {
+    try {
+      const res = await fetch(
+        `${API_URL}/api/profiles/${encodeURIComponent(alias)}`,
+        { signal: AbortSignal.timeout(3000) },
+      );
+      if (res.status === 404) {
+        if (alias === carlos.alias) {
+          return {
+            afiliado: carlos,
+            ofertas: ofertasDeCarlos,
+            colecciones: coleccionesDeCarlos,
+          };
+        }
+        return null;
+      }
+      if (res.ok) {
+        const data = (await res.json()) as ApiPublicProfile;
+        if (data && data.profile) {
+          const af: Afiliado = {
+            alias: data.profile.alias,
+            nombre: data.profile.nombre,
+            avatar: data.profile.avatar || "/img/afiliado/carlos.png",
+            verificado: data.profile.verificado,
+            descripcion: data.profile.descripcion,
+            redes: Array.isArray(data.profile.redes)
+              ? data.profile.redes.filter(
+                  (r) =>
+                    r.red === "youtube" ||
+                    r.red === "instagram" ||
+                    r.red === "tiktok" ||
+                    r.red === "enlace",
+                )
+              : [],
+            ubicacion: data.profile.ubicacion,
+            miembroDesde: data.profile.miembroDesde,
+            estadisticas: data.profile.estadisticas || {
+              seguidores: "1.2K",
+              productos: data.products?.length || 0,
+              colecciones: 4,
+              valoracion: 4.8,
+            },
+            categorias: data.profile.categorias || [],
+            conteoPlataformas: data.profile.conteoPlataformas || {
+              amazon: 0,
+              mercadolibre: 0,
+            },
+            conteoPrecios: data.profile.conteoPrecios || [],
+          };
+          const ofertas =
+            Array.isArray(data.products) && data.products.length > 0
+              ? data.products.map(transformarProducto)
+              : ofertasDeCarlos;
+          const colecciones =
+            Array.isArray(data.collections) && data.collections.length > 0
+              ? data.collections
+              : coleccionesDeCarlos;
+          return { afiliado: af, ofertas, colecciones };
+        }
+      }
+    } catch {
+      // Fallback a demo en caso de no disponibilidad
+    }
+
+    if (alias === carlos.alias) {
+      return {
+        afiliado: carlos,
+        ofertas: ofertasDeCarlos,
+        colecciones: coleccionesDeCarlos,
+      };
+    }
+    return null;
+  },
 };
 
 export const panel = {

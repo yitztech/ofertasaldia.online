@@ -25,6 +25,7 @@ import { MeliSyncService } from "./meli.js";
 import { OAuthController } from "./oauth.js";
 import { PaymentsController, PaymentsService } from "./payments.js";
 import { ArticlesController, ArticlesService } from "./articles.js";
+import { ProfilesController, ProfilesService } from "./profiles.js";
 
 @Controller()
 class HealthController {
@@ -59,6 +60,7 @@ class HealthController {
     OAuthController,
     PaymentsController,
     ArticlesController,
+    ProfilesController,
   ],
   providers: [
     Database,
@@ -68,6 +70,7 @@ class HealthController {
     MeliSyncService,
     PaymentsService,
     ArticlesService,
+    ProfilesService,
   ],
 })
 class AppModule {}

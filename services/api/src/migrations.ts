@@ -210,6 +210,31 @@ const migrations = [
     now()
   FROM products p
   ON CONFLICT (id) DO NOTHING;`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links jsonb NOT NULL DEFAULT '[]'::jsonb;
+  ALTER TABLE profiles ADD COLUMN IF NOT EXISTS accent_color varchar(20) NOT NULL DEFAULT '#4338ca';
+  ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cover_url varchar(2048);
+  INSERT INTO users (id, name, email, password_hash, is_admin, verified_at)
+  VALUES (
+    '01930000-0000-7000-8000-000000000099',
+    'Carlos M.',
+    'carlos@ofertasaldia.online',
+    '$2b$12$e/cOaOqjW.8K9b9N2lZ8s.iJ8t7K5y6n1g3q4w5e6r7t8y9u0i1o2',
+    false,
+    now()
+  )
+  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO profiles (user_id, alias, description, location, avatar_url, cover_url, accent_color, social_links)
+  VALUES (
+    '01930000-0000-7000-8000-000000000099',
+    'carlos-tech',
+    'Apasionado por la tecnología y los gadgets. Comparto las mejores oportunidades de Amazon y Mercado Libre que realmente valen la pena.',
+    'México',
+    '/img/afiliado/carlos.png',
+    '/img/hero-banner.jpg',
+    '#4338ca',
+    '[{"red":"youtube","url":"https://www.youtube.com"},{"red":"instagram","url":"https://www.instagram.com"},{"red":"tiktok","url":"https://www.tiktok.com"},{"red":"enlace","url":"https://ofertasaldia.online/c/carlos-tech"}]'::jsonb
+  )
+  ON CONFLICT (user_id) DO NOTHING;`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {
