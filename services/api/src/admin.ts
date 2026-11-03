@@ -97,6 +97,148 @@ export class AdminController {
       ).rows,
     );
   }
+  @Get("coupons") async coupons(
+    @Req() request: FastifyRequest,
+    @Query() query: unknown,
+  ) {
+    await this.admin(request);
+    const f = filters(query);
+    return page(
+      (
+        await this.db.pool.query(
+          `SELECT id, code, description, discount_type AS "discountType",
+                  discount_value AS "discountValue", max_redemptions AS "maxRedemptions",
+                  times_redeemed AS "timesRedeemed", active, expires_at AS "expiresAt",
+                  created_at AS "createdAt"
+           FROM promo_coupons
+           WHERE ($1='' OR strpos(lower(code||' '||description),lower($1))>0)
+             AND ($2::uuid IS NULL OR id>$2)
+           ORDER BY id LIMIT 21`,
+          [f.q, f.cursor],
+        )
+      ).rows,
+    );
+  }
+  @Post("coupons")
+  @HttpCode(201)
+  async createCoupon(
+    @Req() request: FastifyRequest,
+    @Body() body: unknown,
+  ) {
+    this.auth.csrf(request);
+    const actor = await this.admin(request);
+    const parsed = z
+      .object({
+        code: z
+          .string()
+          .trim()
+          .min(3)
+          .max(40)
+          .regex(/^[A-Za-z0-9_-]+$/),
+        description: z.string().trim().min(3).max(150),
+        discountType: z.enum(["percent", "amount_cents"]),
+        discountValue: z.number().int().positive(),
+        maxRedemptions: z.number().int().positive().nullable().optional(),
+        expiresAt: z.iso.datetime().nullable().optional(),
+      })
+      .strict()
+      .safeParse(body);
+
+    if (!parsed.success) {
+      problem(422, "validation_failed", "Datos del cupón no válidos.");
+    }
+    const d = parsed.data;
+    if (d.discountType === "percent" && (d.discountValue < 1 || d.discountValue > 100)) {
+      problem(422, "validation_failed", "El descuento porcentual debe estar entre 1 y 100.");
+    }
+    if (d.discountType === "amount_cents" && d.discountValue > 29900) {
+      problem(422, "validation_failed", "El descuento en centavos no puede superar el precio del plan.");
+    }
+
+    const codeUpper = d.code.toUpperCase();
+    const couponId = uuidv7();
+    const c = await this.db.pool.connect();
+    try {
+      await c.query("BEGIN");
+      const existing = await c.query(
+        "SELECT id FROM promo_coupons WHERE upper(code) = $1",
+        [codeUpper],
+      );
+      if (existing.rows.length > 0) {
+        problem(409, "coupon_exists", "Ya existe un cupón con ese código.");
+      }
+      const inserted = await c.query(
+        `INSERT INTO promo_coupons (
+          id, code, description, discount_type, discount_value, max_redemptions, expires_at, active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+        RETURNING id, code, description, discount_type AS "discountType",
+                  discount_value AS "discountValue", max_redemptions AS "maxRedemptions",
+                  times_redeemed AS "timesRedeemed", active, expires_at AS "expiresAt",
+                  created_at AS "createdAt"`,
+        [
+          couponId,
+          codeUpper,
+          d.description,
+          d.discountType,
+          d.discountValue,
+          d.maxRedemptions ?? null,
+          d.expiresAt ?? null,
+        ],
+      );
+      await c.query(
+        "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
+        [uuidv7(), actor.id, "coupon_created", couponId],
+      );
+      await c.query("COMMIT");
+      return inserted.rows[0];
+    } catch (e) {
+      await c.query("ROLLBACK");
+      throw e;
+    } finally {
+      c.release();
+    }
+  }
+  @Post("coupons/:id/toggle")
+  @HttpCode(200)
+  async toggleCoupon(
+    @Req() request: FastifyRequest,
+    @Param("id") id: string,
+    @Body() body: unknown,
+  ) {
+    this.auth.csrf(request);
+    const actor = await this.admin(request);
+    const data = z.object({ active: z.boolean() }).strict().safeParse(body);
+    if (!idSchema.safeParse(id).success || !data.success) {
+      problem(422, "validation_failed", "Datos no válidos.");
+    }
+    const c = await this.db.pool.connect();
+    try {
+      await c.query("BEGIN");
+      const res = await c.query(
+        "UPDATE promo_coupons SET active = $2 WHERE id = $1 RETURNING id, active",
+        [id, data.data.active],
+      );
+      if (!res.rows.length) {
+        problem(404, "not_found", "Cupón no encontrado.");
+      }
+      await c.query(
+        "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
+        [
+          uuidv7(),
+          actor.id,
+          data.data.active ? "coupon_activated" : "coupon_deactivated",
+          id,
+        ],
+      );
+      await c.query("COMMIT");
+      return { status: "ok", active: res.rows[0].active };
+    } catch (e) {
+      await c.query("ROLLBACK");
+      throw e;
+    } finally {
+      c.release();
+    }
+  }
   @Post("users/:id/suspension")
   @HttpCode(200)
   async suspend(

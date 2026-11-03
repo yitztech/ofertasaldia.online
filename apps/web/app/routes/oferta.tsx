@@ -8,6 +8,7 @@ import {
   RefreshCwIcon,
   Share2Icon,
   ShieldCheckIcon,
+  TicketPercentIcon,
   TrendingDownIcon,
 } from "lucide-react";
 import { Form, Link, useActionData, useNavigation } from "react-router";
@@ -377,6 +378,7 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
     navigation.state === "submitting" &&
     navigation.formData?.get("intent") === "revalidar-precio";
   const [copiado, setCopiado] = useState(false);
+  const [copiadoCupon, setCopiadoCupon] = useState(false);
 
   const precioMostrado =
     actionData?.precioActualCentavos ?? oferta.precioCentavos;
@@ -416,6 +418,17 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
       await navigator.clipboard.writeText(urlCompleta);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2500);
+    } catch {
+      // Ignorar si el navegador restringe el portapapeles
+    }
+  };
+
+  const copiarCupon = async () => {
+    if (!oferta.cuponCodigo) return;
+    try {
+      await navigator.clipboard.writeText(oferta.cuponCodigo);
+      setCopiadoCupon(true);
+      setTimeout(() => setCopiadoCupon(false), 2500);
     } catch {
       // Ignorar si el navegador restringe el portapapeles
     }
@@ -535,6 +548,51 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
             <p className="m-0 max-w-[68ch] text-sm leading-relaxed text-muted-foreground sm:text-base">
               {oferta.descripcion}
             </p>
+
+            {oferta.cuponCodigo ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary/40 bg-acento/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <TicketPercentIcon
+                    aria-hidden="true"
+                    className="mt-0.5 size-5 shrink-0 text-primary"
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Cupón adicional en {nombreTienda}:
+                      </span>
+                      <code className="rounded bg-card px-2 py-0.5 text-sm font-extrabold tracking-wide text-primary cifras">
+                        {oferta.cuponCodigo}
+                      </code>
+                    </div>
+                    {oferta.cuponDescripcion ? (
+                      <p className="m-0 text-xs text-muted-foreground">
+                        {oferta.cuponDescripcion}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copiarCupon}
+                  className="min-h-11 shrink-0 gap-1.5 font-semibold"
+                >
+                  {copiadoCupon ? (
+                    <>
+                      <CheckIcon aria-hidden="true" className="size-4 text-emerald-600" />
+                      <span role="status" aria-live="polite">¡Cupón copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon aria-hidden="true" className="size-4" />
+                      <span>Copiar cupón</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : null}
 
             {actionData?.ok ? (
               <Alert variant="success" role="status" aria-live="polite">

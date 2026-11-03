@@ -146,6 +146,7 @@ function App() {
           {[
             ["users", "Usuarios"],
             ["products", "Productos"],
+            ["coupons", "Cupones"],
             ["audit", "Auditoría"],
           ].map(([id, label]) => (
             <Button
@@ -170,7 +171,9 @@ function App() {
                   ? "Usuarios y planes"
                   : section === "products"
                     ? "Catálogo publicado"
-                    : "Acciones administrativas"}
+                    : section === "coupons"
+                      ? "Cupones promocionales de Stripe"
+                      : "Acciones administrativas"}
               </CardTitle>
               <CardDescription>
                 Información de la base de datos. Las activaciones de plan son
@@ -227,6 +230,103 @@ function App() {
             </form>
             {error ? <p role="alert">{error}</p> : null}
             {notice ? <p role="status">{notice}</p> : null}
+            {section === "coupons" ? (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const data = new FormData(form);
+                  setBusy(true);
+                  setError("");
+                  setNotice("");
+                  try {
+                    const maxRaw = String(data.get("maxRedemptions") || "").trim();
+                    await api("coupons", {
+                      code: String(data.get("code") || "").trim().toUpperCase(),
+                      description: String(data.get("description") || "").trim(),
+                      discountType: String(data.get("discountType") || "percent"),
+                      discountValue: Number(data.get("discountValue") || 0),
+                      maxRedemptions: maxRaw ? Number(maxRaw) : null,
+                    });
+                    form.reset();
+                    setNotice("Cupón promocional creado.");
+                    await load();
+                  } catch (err) {
+                    setError((err as Error).message);
+                    setBusy(false);
+                  }
+                }}
+                className="mb-6 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-5"
+              >
+                <div>
+                  <label htmlFor="coupon-code" className="mb-1 block text-xs font-semibold">
+                    Código
+                  </label>
+                  <Input
+                    id="coupon-code"
+                    name="code"
+                    required
+                    minLength={3}
+                    maxLength={40}
+                    placeholder="PRO50"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="coupon-desc" className="mb-1 block text-xs font-semibold">
+                    Descripción
+                  </label>
+                  <Input
+                    id="coupon-desc"
+                    name="description"
+                    required
+                    maxLength={150}
+                    placeholder="50% de descuento en Plan Pro"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="coupon-type" className="mb-1 block text-xs font-semibold">
+                    Tipo y valor
+                  </label>
+                  <div className="flex gap-1.5">
+                    <select
+                      id="coupon-type"
+                      name="discountType"
+                      defaultValue="percent"
+                      className="rounded-md border border-border bg-background px-2 text-xs"
+                    >
+                      <option value="percent">% Porcentaje</option>
+                      <option value="amount_cents">Centavos MXN</option>
+                    </select>
+                    <Input
+                      name="discountValue"
+                      type="number"
+                      min={1}
+                      max={29900}
+                      required
+                      defaultValue={25}
+                      aria-label="Valor del descuento"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label htmlFor="coupon-max" className="mb-1 block text-xs font-semibold">
+                      Límite canjes
+                    </label>
+                    <Input
+                      id="coupon-max"
+                      name="maxRedemptions"
+                      type="number"
+                      min={1}
+                      placeholder="Ilimitado"
+                    />
+                  </div>
+                  <Button type="submit" disabled={busy}>
+                    Crear cupón
+                  </Button>
+                </div>
+              </form>
+            ) : null}
             <div aria-busy={busy} className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <caption className="sr-only">{section}</caption>
@@ -236,7 +336,9 @@ function App() {
                       ? ["Nombre", "Correo", "Estado", "Plan", "Acciones"]
                       : section === "products"
                         ? ["Producto", "Plataforma", "Categoría", "Origen"]
-                        : ["Fecha", "Administrador", "Acción", "Recurso"]
+                        : section === "coupons"
+                          ? ["Código", "Descripción", "Descuento", "Canjes", "Estado", "Acciones"]
+                          : ["Fecha", "Administrador", "Acción", "Recurso"]
                     ).map((label) => (
                       <th
                         key={label}
@@ -330,6 +432,46 @@ function App() {
                           <td className="p-3">{row.categoryId}</td>
                           <td className="p-3">
                             {row.isDemo ? "Demostración" : "Publicado"}
+                          </td>
+                        </>
+                      ) : section === "coupons" ? (
+                        <>
+                          <td className="p-3 font-mono font-bold">{row.code}</td>
+                          <td className="p-3">{row.description}</td>
+                          <td className="p-3">
+                            {row.discountType === "percent"
+                              ? `${row.discountValue}%`
+                              : `$${(Number(row.discountValue) / 100).toFixed(2)} MXN`}
+                          </td>
+                          <td className="p-3">
+                            {row.timesRedeemed}
+                            {row.maxRedemptions ? ` / ${row.maxRedemptions}` : " / ∞"}
+                          </td>
+                          <td className="p-3">
+                            {row.active ? "Activo" : "Inactivo"}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={async () => {
+                                setBusy(true);
+                                setNotice("");
+                                try {
+                                  await api(`coupons/${row.id}/toggle`, {
+                                    active: !row.active,
+                                  });
+                                  setNotice("Estado del cupón actualizado.");
+                                  await load();
+                                } catch (e) {
+                                  setError((e as Error).message);
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              {row.active ? "Desactivar" : "Activar"}
+                            </Button>
                           </td>
                         </>
                       ) : (

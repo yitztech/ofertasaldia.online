@@ -17,6 +17,18 @@ export interface SuscripcionUsuario {
   provider: string | null;
 }
 
+export interface ValidacionCupon {
+  valid: true;
+  couponId: string;
+  code: string;
+  description: string;
+  discountType: "percent" | "amount_cents";
+  discountValue: number;
+  originalPriceCents: number;
+  discountCents: number;
+  finalPriceCents: number;
+}
+
 const API_URL = process.env.API_URL ?? "http://api:3001";
 
 export async function obtenerPlanes(): Promise<Plan[]> {
@@ -101,12 +113,47 @@ export async function obtenerSuscripcion(
   };
 }
 
+export async function validarCupon(
+  code: string,
+): Promise<{ ok: true; cupon: ValidacionCupon } | { ok: false; error: string }> {
+  const limpio = code.trim().toUpperCase();
+  if (!limpio) {
+    return { ok: false, error: "Ingresa un código de cupón." };
+  }
+  try {
+    const res = await fetch(`${API_URL}/api/payments/coupons/validate`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ code: limpio, planId: "pro" }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const cupon = (await res.json()) as ValidacionCupon;
+      return { ok: true, cupon };
+    }
+    const problem = (await res.json().catch(() => null)) as { detail?: string } | null;
+    return {
+      ok: false,
+      error: problem?.detail || "El cupón ingresado no es válido o ha vencido.",
+    };
+  } catch {
+    return {
+      ok: false,
+      error: "No se pudo verificar el cupón en este momento. Inténtalo de nuevo.",
+    };
+  }
+}
+
 export async function crearSesionCheckout(
   request: Request,
   planId: "pro",
+  couponCode?: string,
 ): Promise<{ url: string; sessionId: string } | null> {
   const origin = request.headers.get("origin") ?? process.env.SITE_URL ?? "";
   const cookie = request.headers.get("cookie") ?? "";
+  const limpio = couponCode?.trim().toUpperCase();
 
   try {
     const res = await fetch(`${API_URL}/api/payments/checkout-session`, {
@@ -118,7 +165,10 @@ export async function crearSesionCheckout(
         cookie,
         "x-real-ip": request.headers.get("x-real-ip") ?? "",
       },
-      body: JSON.stringify({ planId }),
+      body: JSON.stringify({
+        planId,
+        ...(limpio ? { couponCode: limpio } : {}),
+      }),
       signal: AbortSignal.timeout(6000),
       redirect: "error",
     });
@@ -131,4 +181,33 @@ export async function crearSesionCheckout(
   }
 
   return null;
+}
+
+export async function cancelarSuscripcion(
+  request: Request,
+): Promise<{ ok: boolean; error?: string }> {
+  const origin = request.headers.get("origin") ?? process.env.SITE_URL ?? "";
+  const cookie = request.headers.get("cookie") ?? "";
+
+  try {
+    const res = await fetch(`${API_URL}/api/payments/cancel`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin,
+        "x-csrf": "1",
+        cookie,
+        "x-real-ip": request.headers.get("x-real-ip") ?? "",
+      },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      return { ok: true };
+    }
+    const problem = (await res.json().catch(() => null)) as { detail?: string } | null;
+    return { ok: false, error: problem?.detail || "No se pudo cancelar la suscripción." };
+  } catch {
+    return { ok: false, error: "Error de conexión al cancelar la suscripción." };
+  }
 }
