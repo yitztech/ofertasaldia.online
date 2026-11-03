@@ -132,6 +132,25 @@ const migrations = [
     ADD COLUMN IF NOT EXISTS provider varchar(30) DEFAULT 'stripe',
     ADD COLUMN IF NOT EXISTS provider_subscription_id varchar(255);
   CREATE INDEX IF NOT EXISTS subscriptions_provider_idx ON subscriptions(provider, provider_subscription_id);`,
+  `CREATE TABLE articles (
+    id uuid PRIMARY KEY,
+    author_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title varchar(150) NOT NULL CHECK (char_length(title) >= 5),
+    slug varchar(160) UNIQUE NOT NULL CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+    summary varchar(500) NOT NULL CHECK (char_length(summary) >= 10),
+    content text NOT NULL CHECK (char_length(content) >= 20),
+    cover_image_url varchar(2048),
+    category_id text REFERENCES categories(id) ON DELETE SET NULL,
+    product_id uuid REFERENCES products(id) ON DELETE SET NULL,
+    status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+    published_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX articles_author_idx ON articles(author_id, created_at DESC);
+  CREATE INDEX articles_status_published_idx ON articles(status, published_at DESC);
+  CREATE INDEX articles_category_idx ON articles(category_id, published_at DESC);
+  CREATE INDEX articles_product_idx ON articles(product_id);`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {

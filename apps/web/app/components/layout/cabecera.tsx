@@ -10,6 +10,8 @@ const enlaces = [
   { a: "/#ofertas", texto: "Ofertas" },
   { a: "/#mas-vendidos", texto: "Más vendidos" },
   { a: "/#colecciones", texto: "Colecciones" },
+  { a: "/blog", texto: "Blog" },
+  { a: "/planes", texto: "Planes" },
 ];
 
 interface CabeceraProps {

@@ -23,6 +23,7 @@ import { MailService } from "./mail.js";
 import { MaintenanceService } from "./maintenance.js";
 import { OAuthController } from "./oauth.js";
 import { PaymentsController, PaymentsService } from "./payments.js";
+import { ArticlesController, ArticlesService } from "./articles.js";
 
 @Controller()
 class HealthController {
@@ -56,6 +57,7 @@ class HealthController {
     AdminController,
     OAuthController,
     PaymentsController,
+    ArticlesController,
   ],
   providers: [
     Database,
@@ -63,6 +65,7 @@ class HealthController {
     MailService,
     MaintenanceService,
     PaymentsService,
+    ArticlesService,
   ],
 })
 class AppModule {}
