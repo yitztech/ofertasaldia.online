@@ -56,6 +56,6 @@ export class MailService implements OnModuleInit, OnApplicationShutdown {
     await this.queue.send("mail", { to, subject, text });
   }
   async onApplicationShutdown() {
-    await this.queue.stop();
+    if (this.queue) await this.queue.stop();
   }
 }

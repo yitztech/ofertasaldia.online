@@ -1069,6 +1069,61 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/profiles/me": {
+      get: {
+        summary: "Obtener perfil del usuario autenticado",
+        operationId: "getMyProfile",
+        responses: {
+          "200": {
+            description: "Perfil del usuario autenticado",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Profile" } },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+      put: {
+        summary: "Actualizar perfil del creador/usuario autenticado",
+        operationId: "updateMyProfile",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": { schema: { $ref: "#/components/schemas/ProfileUpdateInput" } },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Perfil actualizado correctamente",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Profile" } },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/profiles/{alias}": {
+      get: {
+        summary: "Obtener perfil público de un creador y sus ofertas",
+        operationId: "getPublicProfile",
+        parameters: [
+          { name: "alias", in: "path", required: true, schema: { type: "string", maxLength: 50 } },
+        ],
+        responses: {
+          "200": {
+            description: "Perfil público del creador con ofertas recomendadas",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/PublicCreatorProfile" } },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -1167,6 +1222,145 @@ export const openApiSpec = {
           authorAlias: { type: ["string", "null"] },
           authorAvatarUrl: { type: ["string", "null"] },
           authorDescription: { type: ["string", "null"] },
+        },
+      },
+      Profile: {
+        type: "object",
+        required: ["userId", "alias", "name", "email", "description", "location", "avatarUrl", "accentColor", "socialLinks", "verified", "createdAt", "updatedAt"],
+        properties: {
+          userId: { type: "string", format: "uuid" },
+          alias: { type: "string", maxLength: 50 },
+          name: { type: "string", maxLength: 50 },
+          email: { type: "string", maxLength: 254 },
+          description: { type: "string", maxLength: 5000 },
+          location: { type: "string", maxLength: 200 },
+          avatarUrl: { type: ["string", "null"], maxLength: 2048 },
+          coverUrl: { type: ["string", "null"], maxLength: 2048 },
+          accentColor: { type: "string", maxLength: 20 },
+          socialLinks: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["red", "url"],
+              properties: {
+                red: { type: "string", maxLength: 30 },
+                url: { type: "string", maxLength: 2048 },
+              },
+            },
+          },
+          verified: { type: "boolean" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ProfileUpdateInput: {
+        type: "object",
+        properties: {
+          alias: { type: "string", maxLength: 50 },
+          name: { type: "string", maxLength: 50 },
+          description: { type: "string", maxLength: 5000 },
+          location: { type: "string", maxLength: 200 },
+          avatarUrl: { type: ["string", "null"], maxLength: 2048 },
+          coverUrl: { type: ["string", "null"], maxLength: 2048 },
+          accentColor: { type: "string", maxLength: 20 },
+          socialLinks: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["red", "url"],
+              properties: {
+                red: { type: "string", maxLength: 30 },
+                url: { type: "string", maxLength: 2048 },
+              },
+            },
+          },
+        },
+      },
+      PublicCreatorProfile: {
+        type: "object",
+        required: ["profile", "products", "collections"],
+        properties: {
+          profile: {
+            type: "object",
+            required: ["alias", "nombre", "avatar", "verificado", "descripcion", "redes", "ubicacion", "miembroDesde", "estadisticas", "categorias", "conteoPlataformas", "conteoPrecios"],
+            properties: {
+              alias: { type: "string" },
+              nombre: { type: "string" },
+              avatar: { type: "string" },
+              coverUrl: { type: ["string", "null"] },
+              verificado: { type: "boolean" },
+              descripcion: { type: "string" },
+              redes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["red", "url"],
+                  properties: {
+                    red: { type: "string" },
+                    url: { type: "string" },
+                  },
+                },
+              },
+              ubicacion: { type: "string" },
+              miembroDesde: { type: "string" },
+              estadisticas: {
+                type: "object",
+                required: ["seguidores", "productos", "colecciones", "valoracion"],
+                properties: {
+                  seguidores: { type: "string" },
+                  productos: { type: "integer" },
+                  colecciones: { type: "integer" },
+                  valoracion: { type: "number" },
+                },
+              },
+              categorias: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["id", "nombre", "productos"],
+                  properties: {
+                    id: { type: "string" },
+                    nombre: { type: "string" },
+                    productos: { type: "integer" },
+                  },
+                },
+              },
+              conteoPlataformas: {
+                type: "object",
+                additionalProperties: { type: "integer" },
+              },
+              conteoPrecios: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["id", "etiqueta", "productos"],
+                  properties: {
+                    id: { type: "string" },
+                    etiqueta: { type: "string" },
+                    productos: { type: "integer" },
+                  },
+                },
+              },
+              accentColor: { type: "string" },
+            },
+          },
+          products: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Product" },
+          },
+          collections: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "titulo", "productos", "imagen"],
+              properties: {
+                id: { type: "string" },
+                titulo: { type: "string" },
+                productos: { type: "integer" },
+                imagen: { type: "string" },
+              },
+            },
+          },
         },
       },
       ProblemDetails: {
