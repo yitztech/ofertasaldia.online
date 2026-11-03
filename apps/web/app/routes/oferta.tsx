@@ -4,6 +4,7 @@ import {
   CheckIcon,
   CopyIcon,
   ExternalLinkIcon,
+  MailIcon,
   RefreshCwIcon,
   Share2Icon,
   ShieldCheckIcon,
@@ -388,15 +389,30 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
   const nombreTienda =
     oferta.plataforma === "mercadolibre" ? "Mercado Libre" : "Amazon";
   const rutaCanonica = urlOferta(oferta, alias ?? undefined);
+  const urlPublica = `https://ofertasaldia.online${rutaCanonica}`;
   const textoCompartir = `Mira esta oferta verificada en OfertasAlDia: ${oferta.nombre} por ${formatearMxn(precioMostrado)}`;
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(textoCompartir)}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${textoCompartir} ${urlPublica}`)}`;
+  const mailtoUrl = `mailto:?subject=${encodeURIComponent(`Oferta verificada: ${oferta.nombre} (${formatearMxn(precioMostrado)})`)}&body=${encodeURIComponent(`${textoCompartir}\n\nConsulta el historial de precios de 90 días y el enlace verificado en:\n${urlPublica}`)}`;
 
-  const copiarEnlace = async () => {
+  const compartirOCopiar = async () => {
+    const urlCompleta =
+      typeof window !== "undefined" ? window.location.href : urlPublica;
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function"
+    ) {
+      try {
+        await navigator.share({
+          title: `${oferta.nombre} · OfertasAlDia`,
+          text: textoCompartir,
+          url: urlCompleta,
+        });
+        return;
+      } catch {
+        // Si el usuario cancela o falla Web Share, continúa a copiar al portapapeles
+      }
+    }
     try {
-      const urlCompleta =
-        typeof window !== "undefined"
-          ? window.location.href
-          : `https://ofertasaldia.online${rutaCanonica}`;
       await navigator.clipboard.writeText(urlCompleta);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2500);
@@ -570,14 +586,20 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
                   rel="noopener noreferrer"
                 >
                   <Share2Icon aria-hidden="true" className="size-4" />
-                  Compartir por WhatsApp
+                  WhatsApp
+                </a>
+              </Button>
+              <Button asChild variant="ghost" size="sm" className="min-h-11 gap-2">
+                <a href={mailtoUrl}>
+                  <MailIcon aria-hidden="true" className="size-4" />
+                  Enviar por correo
                 </a>
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={copiarEnlace}
+                onClick={compartirOCopiar}
                 className="min-h-11 gap-2"
               >
                 {copiado ? (
@@ -588,7 +610,7 @@ export default function FichaOferta({ loaderData }: Route.ComponentProps) {
                 ) : (
                   <>
                     <CopyIcon aria-hidden="true" className="size-4" />
-                    <span>Copiar enlace de la ficha</span>
+                    <span>Compartir / Copiar enlace</span>
                   </>
                 )}
               </Button>

@@ -81,6 +81,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       ? maxPrecioPesos * 100
       : undefined;
 
+  const dispParam = url.searchParams.get("disponibilidad") ?? "active";
+  const disponibilidad = dispParam === "todas" ? "todas" : "active";
+
   const ordenParam = url.searchParams.get("orden") as OrdenBusqueda | null;
   const orden: OrdenBusqueda =
     ordenParam && ORDENES_VALIDOS.includes(ordenParam)
@@ -95,6 +98,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       plataforma,
       minDiscount: minDiscount || undefined,
       maxPriceCents,
+      estado: disponibilidad === "active" ? "active" : undefined,
       orden,
     }),
     catalogo.sugerencias(q),
@@ -111,6 +115,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       plataforma: plataforma ?? "",
       minDiscount,
       maxPrecio: maxPrecioPesos > 0 ? String(maxPrecioPesos) : "",
+      disponibilidad,
       orden,
     },
   };
@@ -216,7 +221,7 @@ export default function BuscarRuta({ loaderData }: Route.ComponentProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="filtro-categoria">Categoría</Label>
                 <NativeSelect
@@ -244,6 +249,19 @@ export default function BuscarRuta({ loaderData }: Route.ComponentProps) {
                   <option value="">Todas las tiendas</option>
                   <option value="mercadolibre">Mercado Libre</option>
                   <option value="amazon">Amazon México</option>
+                </NativeSelect>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="filtro-disponibilidad">Disponibilidad</Label>
+                <NativeSelect
+                  id="filtro-disponibilidad"
+                  name="disponibilidad"
+                  defaultValue={filtros.disponibilidad}
+                  className="min-h-11"
+                >
+                  <option value="active">En existencia (activas)</option>
+                  <option value="todas">Incluir pausadas / agotadas</option>
                 </NativeSelect>
               </div>
 

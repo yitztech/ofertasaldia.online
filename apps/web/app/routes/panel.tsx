@@ -668,6 +668,7 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
                   </div>
                   <RejillaOfertas
                     ofertas={guardados}
+                    favoritosMarcados
                     className="grid-cols-2 md:grid-cols-3 2xl:grid-cols-4"
                     vacio={{
                       titulo: "Aún no tienes ofertas guardadas",

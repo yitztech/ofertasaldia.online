@@ -92,6 +92,7 @@ function Productos({ afiliado, ofertas }: { afiliado: Afiliado; ofertas: Oferta[
         <RejillaOfertas
           ofertas={visibles}
           boton="violeta"
+          alias={afiliado.alias}
           className="grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
           vacio={{
             titulo: "Ningún producto coincide con los filtros",

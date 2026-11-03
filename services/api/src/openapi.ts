@@ -152,6 +152,47 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/buscar/sugerencias": {
+      get: {
+        summary: "Sugerencias de autocompletado en tiempo real para el buscador (/buscar)",
+        operationId: "getBuscarSugerencias",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string", maxLength: 100 } },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de sugerencias rápidas de productos y categorías",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["id", "title", "categoryId", "platform", "priceCents"],
+                        properties: {
+                          id: { type: "string", format: "uuid" },
+                          title: { type: "string", maxLength: 150 },
+                          categoryId: { type: "string", maxLength: 50 },
+                          categoryName: { type: ["string", "null"] },
+                          platform: { type: "string", enum: ["amazon", "mercadolibre"] },
+                          priceCents: { type: "string" },
+                          discountPercentage: { type: ["integer", "null"] },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
     "/api/products/{id}": {
       get: {
         summary: "Detalle de producto con historial de precios",

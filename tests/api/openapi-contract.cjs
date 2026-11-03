@@ -40,6 +40,7 @@ const api = process.env.API_URL || "http://127.0.0.1:3001";
     "/api/products/{id}",
     "/api/products/{id}/check-price",
     "/api/products/suggestions",
+    "/api/buscar/sugerencias",
     "/api/auth/register",
     "/api/auth/login",
     "/api/auth/logout",

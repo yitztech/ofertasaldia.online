@@ -191,6 +191,7 @@ export const catalogo = {
     minDiscount?: number;
     minPriceCents?: number;
     maxPriceCents?: number;
+    estado?: "active" | "paused" | "closed";
     orden?: "recientes" | "descuento" | "precio-asc" | "precio-desc" | "valoracion";
   }): Promise<Oferta[]> => {
     const mapSort: Record<string, string> = {
@@ -215,6 +216,9 @@ export const catalogo = {
       }
       if (filtros.maxPriceCents && filtros.maxPriceCents > 0) {
         params.set("maxPriceCents", String(filtros.maxPriceCents));
+      }
+      if (filtros.estado) {
+        params.set("status", filtros.estado);
       }
       if (filtros.orden && mapSort[filtros.orden]) {
         params.set("sort", mapSort[filtros.orden]);
@@ -262,7 +266,7 @@ export const catalogo = {
       const params = new URLSearchParams();
       if (q) params.set("q", q);
       const res = await fetch(
-        `${API_URL}/api/products/suggestions?${params.toString()}`,
+        `${API_URL}/api/buscar/sugerencias?${params.toString()}`,
         { signal: AbortSignal.timeout(2000) },
       );
       if (res.ok) {

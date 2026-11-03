@@ -126,15 +126,29 @@ interface TarjetaOfertaProps {
   oferta: Oferta;
   /** Color del botón: degradado de marca (marketplace) o violeta (perfil público). */
   boton?: "marca" | "violeta";
+  /** Alias del creador cuando se muestra dentro de /c/:alias para enlazar a /c/:alias/:slugId. */
+  alias?: string;
+  /** Si el producto ya está guardado en favoritos del usuario autenticado. */
+  inicialFavorito?: boolean;
 }
 
-export function TarjetaOferta({ oferta, boton = "marca" }: TarjetaOfertaProps) {
-  const rutaFicha = urlOferta(oferta);
+export function TarjetaOferta({
+  oferta,
+  boton = "marca",
+  alias,
+  inicialFavorito = false,
+}: TarjetaOfertaProps) {
+  const rutaFicha = urlOferta(oferta, alias);
   return (
     <article className="relative flex h-full flex-col gap-2.5 rounded-2xl border border-border bg-card p-3 shadow-tarjeta transition-shadow hover:shadow-[0_14px_32px_-14px_rgb(110_40_170/0.32)]">
       <div className="flex h-36 items-center justify-center pt-6">
         <InsigniaOferta oferta={oferta} className="absolute left-3 top-3" />
-        <BotonFavorito productoId={oferta.id} nombre={oferta.nombre} className="absolute right-1.5 top-1.5" />
+        <BotonFavorito
+          productoId={oferta.id}
+          nombre={oferta.nombre}
+          inicialFavorito={inicialFavorito}
+          className="absolute right-1.5 top-1.5"
+        />
         <Link to={rutaFicha} tabIndex={-1} aria-hidden="true" className="flex h-full w-full items-center justify-center">
           <img
             src={oferta.imagen}

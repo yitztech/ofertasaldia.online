@@ -36,7 +36,7 @@ export function Buscador({
     }
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/products/suggestions?q=${encodeURIComponent(q)}`, {
+      fetch(`/api/buscar/sugerencias?q=${encodeURIComponent(q)}`, {
         signal: ctrl.signal,
       })
         .then((r) => (r.ok ? r.json() : null))
