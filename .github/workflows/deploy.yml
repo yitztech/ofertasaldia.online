@@ -157,6 +157,7 @@ jobs:
           docker compose -f compose.prod.yml exec -T api node < tests/api/recovery.cjs
           docker compose -f compose.prod.yml exec -T api node < tests/api/production-proxy.cjs
           docker compose -f compose.prod.yml exec -T api node < tests/api/hardening.cjs
+          docker compose -f compose.prod.yml exec -T api node < tests/api/payments.cjs
           echo "Humo correcto: $revision"
 
       # ZAP pasivo contra el mismo entorno (AUDITORIA SEG-08): falla con cualquier aviso nuevo.

@@ -120,6 +120,19 @@ function mail(email, subjectFilter = "") {
     checks.push("panel accesible desde cabecera");
     await page.getByText("no ha sido verificado").waitFor();
     checks.push("aviso de verificación en panel");
+    await page.getByText("Tu suscripción").waitFor();
+    checks.push("tarjeta de suscripción en panel");
+
+    // Comprobar página de planes y suscripción
+    await page.goto(root + "/planes");
+    await page.getByRole("heading", { name: "Plan Creador Pro" }).waitFor();
+    await page.getByText(/299.*MXN/).waitFor();
+    checks.push("vista de planes y precios en MXN");
+    await page.getByRole("button", { name: "Suscribirme al Plan Pro", exact: true }).click();
+    await page.waitForURL("**/panel?pago=simulado**");
+    await page.getByText("¡Suscripción completada con éxito!").waitFor();
+    checks.push("flujo de suscripción completado");
+
     await page.goto(root + "/admin/");
     await page
       .getByRole("alert")

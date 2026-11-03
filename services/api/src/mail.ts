@@ -14,6 +14,16 @@ export class MailService implements OnModuleInit, OnApplicationShutdown {
       if (!process.env[name]) throw new Error(`${name} es obligatoria`);
     const { PgBoss } = await import("pg-boss");
     this.queue = new PgBoss({ connectionString: process.env.DATABASE_URL });
+    this.queue.on("error", (err) => {
+      console.error(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          level: "error",
+          msg: "pgboss_error",
+          error: (err as any)?.message || String(err),
+        }),
+      );
+    });
     await this.queue.start();
     await this.queue.createQueue("mail", {
       retryLimit: 5,

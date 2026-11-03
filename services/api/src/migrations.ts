@@ -112,6 +112,26 @@ const migrations = [
     created_at timestamptz NOT NULL DEFAULT now()
   );
   CREATE INDEX email_verification_tokens_user_idx ON email_verification_tokens(user_id);`,
+  `CREATE TABLE payment_customers (
+    user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    provider varchar(30) NOT NULL,
+    customer_id varchar(255) NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX payment_customers_provider_idx ON payment_customers(provider, customer_id);
+  CREATE TABLE payment_events (
+    id varchar(255) PRIMARY KEY,
+    provider varchar(30) NOT NULL,
+    event_type varchar(100) NOT NULL,
+    payload jsonb NOT NULL,
+    processed_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX payment_events_provider_idx ON payment_events(provider, event_type);
+  ALTER TABLE subscriptions
+    ADD COLUMN IF NOT EXISTS plan_id varchar(50) NOT NULL DEFAULT 'pro',
+    ADD COLUMN IF NOT EXISTS provider varchar(30) DEFAULT 'stripe',
+    ADD COLUMN IF NOT EXISTS provider_subscription_id varchar(255);
+  CREATE INDEX IF NOT EXISTS subscriptions_provider_idx ON subscriptions(provider, provider_subscription_id);`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {
