@@ -134,5 +134,5 @@ Fortalecer la confianza en la IP de origen y asegurar que los correos registrado
 | Sesión 2: Cron de purga de tablas temporales | Completada | 2026-11-02 | `MaintenanceService` con cron pg-boss y purga al arranque |
 | Sesión 2: Calibración de timeouts de PostgreSQL | Completada | 2026-11-02 | Pool max: 8, connectionTimeout: 2500ms, statement_timeout: 2000ms |
 | Sesión 3: Bloqueo de auto-suspensión de admin | Completada | 2026-11-02 | `cannot_suspend_self`, `last_admin_protection`, badge "Tu cuenta" y botón deshabilitado |
-| Sesión 4: Validación estricta de TRUSTED_PROXY | Pendiente | — | — |
-| Sesión 4: Verificación de buzón en registro | Pendiente | — | Marcada como obligatoria por el usuario |
+| Sesión 4: Validación estricta de TRUSTED_PROXY | Completada | 2026-11-02 | Script `15-trusted-proxy.sh`, regla SEC-01 en Compose y docs de Traefik |
+| Sesión 4: Verificación de buzón en registro | Completada | 2026-11-02 | Token 24h en registro, `/verificar`, endpoints `verify-email` y `resend-verification`, banner en panel |

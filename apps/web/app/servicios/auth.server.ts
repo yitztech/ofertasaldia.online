@@ -3,6 +3,7 @@ export interface UsuarioSesion {
   name: string;
   email: string;
   role: string;
+  verifiedAt: string | null;
 }
 
 export async function obtenerUsuario(request: Request): Promise<UsuarioSesion | null> {

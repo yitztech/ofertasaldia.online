@@ -5,6 +5,7 @@ import { MailService } from "./mail.js";
 export interface PurgeResult {
   authAttempts: number;
   passwordTokens: number;
+  emailVerificationTokens: number;
   sessions: number;
   oauthFlows: number;
 }
@@ -64,6 +65,9 @@ export class MaintenanceService implements OnModuleInit {
       const passwordTokens = await client.query(
         "DELETE FROM password_tokens WHERE expires_at < now()",
       );
+      const emailVerificationTokens = await client.query(
+        "DELETE FROM email_verification_tokens WHERE expires_at < now()",
+      );
       const sessions = await client.query(
         "DELETE FROM sessions WHERE expires_at < now() OR last_seen_at < now() - interval '24 hours'",
       );
@@ -73,6 +77,7 @@ export class MaintenanceService implements OnModuleInit {
       return {
         authAttempts: authAttempts.rowCount ?? 0,
         passwordTokens: passwordTokens.rowCount ?? 0,
+        emailVerificationTokens: emailVerificationTokens.rowCount ?? 0,
         sessions: sessions.rowCount ?? 0,
         oauthFlows: oauthFlows.rowCount ?? 0,
       };

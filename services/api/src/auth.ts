@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Injectable,
   Post,
   Req,
@@ -115,7 +116,7 @@ export class AuthService {
     if (!token || token.length > 100)
       problem(401, "unauthenticated", "Inicia sesión.");
     const result = await this.db.pool.query(
-      `SELECT u.id,u.name,u.email,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND s.last_seen_at>now()-interval '24 hours' AND u.suspended_at IS NULL`,
+      `SELECT u.id,u.name,u.email,u.role,u.verified_at AS "verifiedAt" FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND s.last_seen_at>now()-interval '24 hours' AND u.suspended_at IS NULL`,
       [digest(token)],
     );
     if (!result.rows[0]) problem(401, "unauthenticated", "Inicia sesión.");
@@ -128,6 +129,7 @@ export class AuthService {
       name: string;
       email: string;
       role: string;
+      verifiedAt: string | null;
     };
   }
   cookieName() {
@@ -342,6 +344,17 @@ export class AuthController {
         ],
       );
     }
+    const verificationToken = randomBytes(32).toString("base64url");
+    await this.db.pool.query(
+      `INSERT INTO email_verification_tokens(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '24 hours')`,
+      [digest(verificationToken), result.rows[0].id],
+    );
+    await this.mail.send(
+      parsed.data.email.toLowerCase(),
+      "Verifica tu correo electrónico",
+      `Hola ${parsed.data.name.replace(/\s+/g, " ")},\n\nGracias por unirte a OfertasAlDía. Para verificar tu dirección de correo electrónico, usa el siguiente enlace:\n\n${process.env.SITE_URL}/verificar#token=${verificationToken}\n\nEl enlace vence en 24 horas.`,
+    );
+
     const token = randomBytes(32).toString("base64url");
     await this.db.pool.query(
       `INSERT INTO sessions(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '7 days')`,
@@ -405,6 +418,95 @@ export class AuthController {
         digest(token),
       ]);
     reply.clearCookie(this.auth.cookieName(), this.auth.cookieOptions());
+    return { status: "ok" };
+  }
+  @Post("verify-email")
+  @HttpCode(200)
+  async verifyEmail(@Body() body: unknown, @Req() request: FastifyRequest) {
+    this.auth.csrf(request);
+    const parsed = z
+      .object({
+        token: z.string().length(43),
+      })
+      .strict()
+      .safeParse(body);
+    if (!parsed.success) {
+      problem(
+        422,
+        "validation_failed",
+        "Revisa el enlace de verificación.",
+        fieldErrors(parsed.error),
+      );
+    }
+    await this.auth.rateLimit(request);
+    const client = await this.db.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        "DELETE FROM email_verification_tokens WHERE token_hash=$1 AND expires_at>now() RETURNING user_id",
+        [digest(parsed.data.token)],
+      );
+      if (!result.rows[0]) {
+        problem(
+          422,
+          "invalid_token",
+          "El enlace de verificación no es válido o ha vencido.",
+        );
+      }
+      await client.query(
+        "UPDATE users SET verified_at=now(), updated_at=now() WHERE id=$1",
+        [result.rows[0].user_id],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    return { status: "ok" };
+  }
+  @Post("resend-verification")
+  @HttpCode(200)
+  async resendVerification(
+    @Body() body: unknown,
+    @Req() request: FastifyRequest,
+  ) {
+    this.auth.csrf(request);
+    const parsed = z
+      .object({ email: z.email().max(254) })
+      .strict()
+      .safeParse(body);
+    if (!parsed.success) {
+      problem(
+        422,
+        "validation_failed",
+        "Revisa el correo electrónico.",
+        fieldErrors(parsed.error),
+      );
+    }
+    await this.auth.rateLimit(request, parsed.data.email);
+    const userRes = await this.db.pool.query(
+      "SELECT id, name, email, verified_at FROM users WHERE lower(email)=lower($1) AND suspended_at IS NULL",
+      [parsed.data.email],
+    );
+    const user = userRes.rows[0];
+    if (user && !user.verified_at) {
+      const token = randomBytes(32).toString("base64url");
+      await this.db.pool.query(
+        "DELETE FROM email_verification_tokens WHERE user_id=$1",
+        [user.id],
+      );
+      await this.db.pool.query(
+        `INSERT INTO email_verification_tokens(token_hash,user_id,expires_at) VALUES ($1,$2,now()+interval '24 hours')`,
+        [digest(token), user.id],
+      );
+      await this.mail.send(
+        user.email,
+        "Verifica tu correo electrónico",
+        `Hola ${user.name},\n\nPara verificar tu dirección de correo electrónico, usa el siguiente enlace:\n\n${process.env.SITE_URL}/verificar#token=${token}\n\nEl enlace vence en 24 horas.`,
+      );
+    }
     return { status: "ok" };
   }
 }

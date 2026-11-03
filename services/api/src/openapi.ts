@@ -214,6 +214,7 @@ export const openApiSpec = {
                     name: { type: "string" },
                     email: { type: "string", format: "email" },
                     role: { type: "string", enum: ["user", "admin"] },
+                    verifiedAt: { type: ["string", "null"], format: "date-time" },
                   },
                 },
               },
@@ -290,6 +291,74 @@ export const openApiSpec = {
             },
           },
           "400": { $ref: "#/components/responses/BadRequest" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/auth/verify-email": {
+      post: {
+        summary: "Confirmar dirección de correo electrónico mediante token",
+        operationId: "verifyEmail",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["token"],
+                properties: { token: { type: "string", minLength: 43, maxLength: 43 } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Correo verificado exitosamente",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status"],
+                  properties: { status: { type: "string", enum: ["ok"] } },
+                },
+              },
+            },
+          },
+          "422": { $ref: "#/components/responses/ValidationError" },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/auth/resend-verification": {
+      post: {
+        summary: "Reenviar enlace de verificación de correo",
+        operationId: "resendVerification",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["email"],
+                properties: { email: { type: "string", format: "email", maxLength: 254 } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Petición procesada (si el usuario existe y no está verificado, se envía el correo)",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status"],
+                  properties: { status: { type: "string", enum: ["ok"] } },
+                },
+              },
+            },
+          },
           "422": { $ref: "#/components/responses/ValidationError" },
           "429": { $ref: "#/components/responses/RateLimited" },
         },
@@ -589,10 +658,11 @@ export const openApiSpec = {
                     status: { type: "string", enum: ["ok"] },
                     purged: {
                       type: "object",
-                      required: ["authAttempts", "passwordTokens", "sessions", "oauthFlows"],
+                      required: ["authAttempts", "passwordTokens", "emailVerificationTokens", "sessions", "oauthFlows"],
                       properties: {
                         authAttempts: { type: "integer" },
                         passwordTokens: { type: "integer" },
+                        emailVerificationTokens: { type: "integer" },
                         sessions: { type: "integer" },
                         oauthFlows: { type: "integer" },
                       },

@@ -43,7 +43,8 @@ async function post(path, body, cookie) {
       await fetch("http://mailpit:8025/api/v1/messages")
     ).json();
     message = list.messages?.find((m) =>
-      m.To?.some((to) => to.Address === email),
+      m.To?.some((to) => to.Address === email) &&
+      m.Subject?.includes("Restablecer"),
     );
     if (message) break;
     await new Promise((r) => setTimeout(r, 1000));

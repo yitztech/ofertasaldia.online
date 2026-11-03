@@ -7,8 +7,8 @@ const root = process.env.TARGET_URL || "http://localhost:8080";
 const results = path.join(process.cwd(), "tests/e2e/results");
 fs.mkdirSync(results, { recursive: true });
 fs.rmSync(path.join(results, "failure.txt"), { force: true });
-function mail(email) {
-  const script = `fetch('http://mailpit:8025/api/v1/messages').then(r=>r.json()).then(async list=>{const m=list.messages.find(m=>m.To.some(t=>t.Address===${JSON.stringify(email)}));if(!m)return console.log('null');console.log(JSON.stringify(await(await fetch('http://mailpit:8025/api/v1/message/'+m.ID)).json()))})`;
+function mail(email, subjectFilter = "") {
+  const script = `fetch('http://mailpit:8025/api/v1/messages').then(r=>r.json()).then(async list=>{const m=list.messages.find(m=>m.To.some(t=>t.Address===${JSON.stringify(email)}) && (!${JSON.stringify(subjectFilter)} || (m.Subject && m.Subject.includes(${JSON.stringify(subjectFilter)}))));if(!m)return console.log('null');console.log(JSON.stringify(await(await fetch('http://mailpit:8025/api/v1/message/'+m.ID)).json()))})`;
   return JSON.parse(
     execFileSync(
       "docker",
@@ -118,6 +118,8 @@ function mail(email) {
     await page.getByLabel("Cuenta de María Pérez").click();
     await page.waitForURL("**/panel");
     checks.push("panel accesible desde cabecera");
+    await page.getByText("no ha sido verificado").waitFor();
+    checks.push("aviso de verificación en panel");
     await page.goto(root + "/admin/");
     await page
       .getByRole("alert")
@@ -135,7 +137,7 @@ function mail(email) {
       .waitFor();
     let message;
     for (let i = 0; i < 25; i++) {
-      message = mail(email);
+      message = mail(email, "Restablecer");
       if (message) break;
       await page.waitForTimeout(1000);
     }

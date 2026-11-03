@@ -19,6 +19,7 @@ RUN apk upgrade --no-cache brotli-libs curl libcurl \
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY gateway/snippets/ /etc/nginx/snippets/
 COPY gateway/default.conf.template /etc/nginx/templates/nginx/default.conf.template
+COPY --chmod=755 gateway/15-trusted-proxy.sh /docker-entrypoint.d/15-trusted-proxy.sh
 COPY --chmod=755 gateway/16-analytics.sh /docker-entrypoint.d/16-analytics.sh
 
 # Sin root: Docker deja a cualquier usuario escuchar en el 80 (ip_unprivileged_port_start=0).
