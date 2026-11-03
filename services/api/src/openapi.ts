@@ -106,6 +106,60 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/products/{id}": {
+      get: {
+        summary: "Detalle de producto con historial de precios",
+        operationId: "getProductById",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Detalle completo del producto e historial de 90 días",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ProductDetail" },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/products/{id}/check-price": {
+      post: {
+        summary: "Revalidar precio en vivo contra Mercado Libre",
+        operationId: "checkProductPrice",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Resultado de la comprobación de precio",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "productId", "currentPriceCents", "previousPriceCents", "lastCheckedAt", "changed"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    productId: { type: "string", format: "uuid" },
+                    currentPriceCents: { type: "integer" },
+                    previousPriceCents: { type: "integer" },
+                    discountPercentage: { type: ["integer", "null"] },
+                    lastCheckedAt: { type: "string", format: "date-time" },
+                    changed: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
     "/api/auth/register": {
       post: {
         summary: "Registro de nuevo usuario",
@@ -677,6 +731,33 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/admin/catalog/sync": {
+      post: {
+        summary: "Sincronización del catálogo contra Mercado Libre",
+        operationId: "syncAdminCatalog",
+        responses: {
+          "200": {
+            description: "Resultado de la sincronización de productos",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "total", "updated", "syncedAt"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    total: { type: "integer" },
+                    updated: { type: "integer" },
+                    syncedAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+    },
     "/api/payments/plans": {
       get: {
         summary: "Listado de planes y suscripciones disponibles",
@@ -999,12 +1080,44 @@ export const openApiSpec = {
           title: { type: "string", maxLength: 150 },
           description: { type: ["string", "null"], maxLength: 5000 },
           categoryId: { type: "string", maxLength: 50 },
+          categoryName: { type: ["string", "null"] },
           platform: { type: "string", enum: ["amazon", "mercadolibre"] },
           priceCents: { type: ["string", "null"] },
+          originalPriceCents: { type: ["string", "null"] },
+          discountPercentage: { type: ["integer", "null"] },
           currency: { type: "string", minLength: 3, maxLength: 3 },
           imageUrl: { type: ["string", "null"], maxLength: 2048 },
+          affiliateUrl: { type: ["string", "null"], maxLength: 2048 },
+          externalId: { type: ["string", "null"], maxLength: 50 },
+          rating: { type: ["number", "null"] },
+          reviewsCount: { type: ["integer", "null"] },
+          status: { type: "string", enum: ["active", "paused", "closed"] },
+          lastCheckedAt: { type: ["string", "null"], format: "date-time" },
           isDemo: { type: "boolean" },
         },
+      },
+      ProductDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/Product" },
+          {
+            type: "object",
+            required: ["priceHistory"],
+            properties: {
+              priceHistory: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["id", "priceCents", "recordedAt"],
+                  properties: {
+                    id: { type: "string", format: "uuid" },
+                    priceCents: { type: "string" },
+                    recordedAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+        ],
       },
       Article: {
         type: "object",

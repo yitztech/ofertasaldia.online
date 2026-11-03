@@ -38,7 +38,7 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").slice(0, limites.busqueda);
-  const categorias = catalogo.categorias();
+  const categorias = await catalogo.categorias();
   const categoriaPedida = url.searchParams.get("categoria");
   const categoria = (categorias.find((c) => c.id === categoriaPedida)?.id ?? "todas") as CategoriaId;
   const plataformaPedida = url.searchParams.get("plataforma");

@@ -153,4 +153,25 @@ Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Plan 
 - **Resiliencia de PostgreSQL**: Pool configurado en `services/api/src/database.ts` con `max: 8`, `connectionTimeoutMillis: 2500` y `statement_timeout: 2000`. Cero errores 500/503 bajo ráfagas concurrentes.
 - **Verificación**: Nueva suite `tests/api/maintenance.cjs` (15 peticiones concurrentes y prueba de ciclo de vida de registros temporales); OpenAPI 3.1 actualizado; `npm test` y pruebas E2E pasando.
 
+### Sesión de Estabilidad y Remediación de CVEs (2026-11-03, PR #11)
+- **Mitigación Trivy en imágenes Alpine**: Actualizado `libexpat` a `>= 2.10.0-r0` en `gateway/Dockerfile` y `admin/Dockerfile` ante las vulnerabilidades HIGH `CVE-2026-117610` y `CVE-2026-118370`. Escaneo de Trivy 100% limpio (0 vulnerabilidades) y checks de CI en verde.
+
+### Sesión de Catálogo Persistente y Sincronización Mercado Libre (2026-11-03)
+- **Migraciones 11 y 12 (`services/api/src/migrations.ts`)**:
+  - Ampliada la tabla `products` con `external_id`, `affiliate_url`, `original_price_cents`, `discount_percentage`, `rating`, `reviews_count`, `status` y `last_checked_at`.
+  - Nueva tabla `price_history` con identificadores UUIDv7 para registrar el comportamiento histórico de precios (base para el gráfico de 90 días).
+  - Sembrados 12 productos verificados con datos reales de Mercado Libre / Amazon y 3 puntos históricos de precio por producto.
+- **Servicio de Sincronización Mercado Libre (`services/api/src/meli.ts`)**:
+  - `MeliSyncService`: cliente HTTP sin scraping para `api.mercadolibre.com` (`/items/{id}` y `/sale_price?context=channel_marketplace`), timeouts de 5s, traducción de estados (`active`, `paused`, `closed`) y cálculo de descuentos.
+- **Controlador de Catálogo (`services/api/src/catalog.controller.ts`)**:
+  - `GET /api/products`: listado enriquecido con categorías, descuentos, valoraciones y paginación por cursor.
+  - `GET /api/products/:id`: detalle completo con colección ordenada de `priceHistory`.
+  - `POST /api/products/:id/check-price`: comprobación y revalidación de precio en vivo contra Mercado Libre con registro en historial.
+  - `POST /api/admin/catalog/sync`: sincronización por lotes protegida por rol de administración con registro en `admin_audit`.
+- **Integración Frontend (`apps/web/app/servicios/catalogo.ts`)**:
+  - Conexión dinámica con `GET /api/products` y `GET /api/categories` de la API, con fallback seguro a catálogo estático si la API no está disponible.
+- **Calidad y Contratos**:
+  - Especificación OpenAPI 3.1 y `docs/openapi.json` actualizados con nuevos esquemas y rutas.
+  - Nueva suite automatizada `tests/api/catalog.cjs` añadida al runner central `scripts/test-all.mjs`.
+
 Los archivos `.impeccable/`, `DESIGN.md`, `PRODUCT.md`, sus equivalentes en `apps/web` y `design/` ya estaban sin seguimiento; se preservaron y no forman parte del cambio.

@@ -21,6 +21,7 @@ import cookie from "@fastify/cookie";
 import { AuthController, AuthService } from "./auth.js";
 import { MailService } from "./mail.js";
 import { MaintenanceService } from "./maintenance.js";
+import { MeliSyncService } from "./meli.js";
 import { OAuthController } from "./oauth.js";
 import { PaymentsController, PaymentsService } from "./payments.js";
 import { ArticlesController, ArticlesService } from "./articles.js";
@@ -64,6 +65,7 @@ class HealthController {
     AuthService,
     MailService,
     MaintenanceService,
+    MeliSyncService,
     PaymentsService,
     ArticlesService,
   ],
