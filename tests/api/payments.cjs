@@ -220,7 +220,79 @@ function signPayload(payloadString, secret = webhookSecret) {
   const canceledSub = await canceledSubRes.json();
   assert.equal(canceledSub.status, "none", "La suscripción revocada debe volver a status 'none'");
 
-  console.log("PASS: Planes MXN, suscripciones, checkout session, webhooks HMAC, idempotencia y cancelación");
+  // 8. Probar Cupones Promocionales (POST /api/payments/coupons/validate y checkout con cupón)
+  // 8.1 Cupón PRO50 (50% de descuento -> $149.50 MXN / 14950 centavos)
+  const valPro50Res = await fetch(api + "/api/payments/coupons/validate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: "pro50", planId: "pro" }),
+  });
+  assert.equal(valPro50Res.status, 200, "Valida cupón PRO50 con 200");
+  const valPro50 = await valPro50Res.json();
+  assert.equal(valPro50.valid, true);
+  assert.equal(valPro50.code, "PRO50");
+  assert.equal(valPro50.originalPriceCents, 29900);
+  assert.equal(valPro50.discountCents, 14950);
+  assert.equal(valPro50.finalPriceCents, 14950);
+
+  // 8.2 Cupón AHORRA100 ($100 MXN / 10000 centavos de descuento -> 19900 centavos)
+  const valAhorraRes = await fetch(api + "/api/payments/coupons/validate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: "AHORRA100" }),
+  });
+  assert.equal(valAhorraRes.status, 200);
+  const valAhorra = await valAhorraRes.json();
+  assert.equal(valAhorra.discountCents, 10000);
+  assert.equal(valAhorra.finalPriceCents, 19900);
+
+  // 8.3 Cupón inexistente -> 404
+  const notFoundCouponRes = await fetch(api + "/api/payments/coupons/validate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code: "NOEXISTE99" }),
+  });
+  assert.equal(notFoundCouponRes.status, 404, "Cupón inexistente devuelve 404");
+
+  // 8.4 Checkout con cupón PRO50
+  const checkoutCouponRes = await fetch(api + "/api/payments/checkout-session", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: site, "x-csrf": "1", cookie },
+    body: JSON.stringify({ planId: "pro", couponCode: "PRO50" }),
+  });
+  assert.equal(checkoutCouponRes.status, 200);
+  const checkoutCouponData = await checkoutCouponRes.json();
+  assert.equal(checkoutCouponData.couponCode, "PRO50");
+  assert.equal(checkoutCouponData.discountCents, 14950);
+  assert.equal(checkoutCouponData.finalPriceCents, 14950);
+
+  // 8.5 Cancelación directa desde el panel (POST /api/payments/cancel)
+  const cancelDirectRes = await fetch(api + "/api/payments/cancel", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: site, "x-csrf": "1", cookie },
+    body: JSON.stringify({}),
+  });
+  assert.equal(cancelDirectRes.status, 200, "Cancelación directa responde 200");
+  const cancelDirectData = await cancelDirectRes.json();
+  assert.equal(cancelDirectData.status, "canceled");
+
+  // 8.6 Checkout con cupón de 100% de cortesía (PROGRATIS)
+  const freeCheckoutRes = await fetch(api + "/api/payments/checkout-session", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: site, "x-csrf": "1", cookie },
+    body: JSON.stringify({ planId: "pro", couponCode: "PROGRATIS" }),
+  });
+  assert.equal(freeCheckoutRes.status, 200);
+  const freeCheckoutData = await freeCheckoutRes.json();
+  assert.equal(freeCheckoutData.finalPriceCents, 0);
+  assert.equal(freeCheckoutData.couponCode, "PROGRATIS");
+
+  const subAfterFreeRes = await fetch(api + "/api/payments/subscription", { headers: { cookie } });
+  const subAfterFree = await subAfterFreeRes.json();
+  assert.equal(subAfterFree.status, "active");
+  assert.equal(subAfterFree.provider, "coupon_free");
+
+  console.log("PASS: Planes MXN, suscripciones, cupones de descuento, checkout session, webhooks HMAC, idempotencia y cancelación");
 })().catch((err) => {
   console.error(err);
   process.exitCode = 1;

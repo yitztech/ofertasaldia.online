@@ -783,6 +783,119 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/admin/coupons": {
+      get: {
+        summary: "Listado de cupones promocionales de suscripción",
+        operationId: "getAdminCoupons",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string", maxLength: 100 } },
+          { name: "cursor", in: "query", schema: { type: "string", maxLength: 100 } },
+        ],
+        responses: {
+          "200": {
+            description: "Lista paginada de cupones promocionales",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "nextCursor"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/PromoCoupon" },
+                    },
+                    nextCursor: { type: ["string", "null"] },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+        },
+      },
+      post: {
+        summary: "Crear un nuevo cupón promocional de suscripción",
+        operationId: "createAdminCoupon",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["code", "description", "discountType", "discountValue"],
+                properties: {
+                  code: { type: "string", minLength: 3, maxLength: 40 },
+                  description: { type: "string", minLength: 3, maxLength: 150 },
+                  discountType: { type: "string", enum: ["percent", "amount_cents"] },
+                  discountValue: { type: "integer", minimum: 1 },
+                  maxRedemptions: { type: ["integer", "null"], minimum: 1 },
+                  expiresAt: { type: ["string", "null"], format: "date-time" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Cupón promocional creado",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PromoCoupon" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "409": { $ref: "#/components/responses/Conflict" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/admin/coupons/{id}/toggle": {
+      post: {
+        summary: "Activar o desactivar un cupón promocional",
+        operationId: "toggleAdminCoupon",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["active"],
+                properties: {
+                  active: { type: "boolean" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Estado del cupón actualizado",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "active"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    active: { type: "boolean" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
     "/api/admin/maintenance/purge": {
       post: {
         summary: "Ejecutar purga manual de registros vencidos",
@@ -910,6 +1023,90 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/payments/coupons/validate": {
+      post: {
+        summary: "Validar un código de cupón promocional para el Plan Pro",
+        operationId: "validatePaymentCoupon",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["code"],
+                properties: {
+                  code: { type: "string", minLength: 1, maxLength: 40 },
+                  planId: { type: "string", enum: ["pro"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Cupón válido y desglose de descuento en centavos MXN",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: [
+                    "valid",
+                    "couponId",
+                    "code",
+                    "description",
+                    "discountType",
+                    "discountValue",
+                    "originalPriceCents",
+                    "discountCents",
+                    "finalPriceCents",
+                  ],
+                  properties: {
+                    valid: { type: "boolean", enum: [true] },
+                    couponId: { type: "string", format: "uuid" },
+                    code: { type: "string" },
+                    description: { type: "string" },
+                    discountType: { type: "string", enum: ["percent", "amount_cents"] },
+                    discountValue: { type: "integer" },
+                    stripeCouponId: { type: ["string", "null"] },
+                    originalPriceCents: { type: "integer" },
+                    discountCents: { type: "integer" },
+                    finalPriceCents: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/payments/cancel": {
+      post: {
+        summary: "Cancelar la suscripción activa del usuario autenticado",
+        operationId: "cancelUserSubscription",
+        responses: {
+          "200": {
+            description: "Suscripción cancelada con éxito",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "planId"],
+                  properties: {
+                    status: { type: "string", enum: ["canceled"] },
+                    planId: { type: "string", enum: ["gratuito"] },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+        },
+      },
+    },
     "/api/payments/checkout-session": {
       post: {
         summary: "Crear sesión de checkout para suscripción",
@@ -923,6 +1120,7 @@ export const openApiSpec = {
                 required: ["planId"],
                 properties: {
                   planId: { type: "string", enum: ["pro"] },
+                  couponCode: { type: "string", maxLength: 40 },
                 },
               },
             },
@@ -939,6 +1137,9 @@ export const openApiSpec = {
                   properties: {
                     url: { type: "string" },
                     sessionId: { type: "string" },
+                    discountCents: { type: "integer" },
+                    finalPriceCents: { type: "integer" },
+                    couponCode: { type: ["string", "null"] },
                   },
                 },
               },
@@ -946,6 +1147,7 @@ export const openApiSpec = {
           },
           "401": { $ref: "#/components/responses/Unauthorized" },
           "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
           "422": { $ref: "#/components/responses/ValidationError" },
         },
       },
@@ -1396,6 +1598,33 @@ export const openApiSpec = {
           status: { type: "string", enum: ["active", "paused", "closed"] },
           lastCheckedAt: { type: ["string", "null"], format: "date-time" },
           isDemo: { type: "boolean" },
+          couponCode: { type: ["string", "null"], maxLength: 50 },
+          couponDescription: { type: ["string", "null"], maxLength: 150 },
+        },
+      },
+      PromoCoupon: {
+        type: "object",
+        required: [
+          "id",
+          "code",
+          "description",
+          "discountType",
+          "discountValue",
+          "timesRedeemed",
+          "active",
+          "createdAt",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          code: { type: "string", maxLength: 40 },
+          description: { type: "string", maxLength: 150 },
+          discountType: { type: "string", enum: ["percent", "amount_cents"] },
+          discountValue: { type: "integer" },
+          maxRedemptions: { type: ["integer", "null"] },
+          timesRedeemed: { type: "integer" },
+          active: { type: "boolean" },
+          expiresAt: { type: ["string", "null"], format: "date-time" },
+          createdAt: { type: "string", format: "date-time" },
         },
       },
       ProductDetail: {

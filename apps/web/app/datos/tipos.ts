@@ -37,6 +37,10 @@ export interface Oferta {
   valoracion: number;
   resenas: number;
   enlace: string;
+  /** Código de cupón adicional de la tienda si aplica. */
+  cuponCodigo?: string;
+  /** Descripción breve del beneficio del cupón de tienda. */
+  cuponDescripcion?: string;
 }
 
 export interface Coleccion {

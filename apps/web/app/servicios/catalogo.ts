@@ -52,6 +52,8 @@ interface ApiProduct {
   status: string;
   lastCheckedAt?: string | null;
   isDemo?: boolean;
+  couponCode?: string | null;
+  couponDescription?: string | null;
   priceHistory?: Array<{
     id: string;
     priceCents: string;
@@ -128,6 +130,8 @@ function transformarProducto(
     valoracion: p.rating ?? 4.8,
     resenas: p.reviewsCount ?? 150,
     enlace,
+    cuponCodigo: p.couponCode ?? undefined,
+    cuponDescripcion: p.couponDescription ?? undefined,
   };
 }
 

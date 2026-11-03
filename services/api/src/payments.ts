@@ -101,6 +101,12 @@ export function verifyStripeSignature(
 
 const checkoutSchema = z.object({
   planId: z.literal("pro"),
+  couponCode: z.string().trim().max(40).optional(),
+});
+
+const validateCouponSchema = z.object({
+  code: z.string().trim().min(1).max(40),
+  planId: z.literal("pro").optional().default("pro"),
 });
 
 @Injectable()
@@ -148,10 +154,208 @@ export class PaymentsService {
     };
   }
 
+  async validateCoupon(rawCode: string, planId: "pro" = "pro") {
+    const code = rawCode.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{3,40}$/.test(code)) {
+      problem(
+        422,
+        "validation_failed",
+        "El código de cupón debe tener entre 3 y 40 caracteres alfanuméricos.",
+        [
+          {
+            field: "code",
+            code: "invalid_characters",
+            message: "Usa únicamente letras, números o guiones.",
+          },
+        ],
+      );
+    }
+
+    const res = await this.db.pool.query(
+      `SELECT id, code, description, discount_type AS "discountType",
+              discount_value AS "discountValue", max_redemptions AS "maxRedemptions",
+              times_redeemed AS "timesRedeemed", stripe_coupon_id AS "stripeCouponId",
+              active, expires_at AS "expiresAt"
+       FROM promo_coupons
+       WHERE upper(code) = $1
+       LIMIT 1`,
+      [code],
+    );
+
+    const row = res.rows[0];
+    if (!row) {
+      problem(404, "coupon_not_found", "El cupón ingresado no existe.");
+    }
+    if (!row.active) {
+      problem(422, "coupon_inactive", "Este cupón ya no está activo.");
+    }
+    if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) {
+      problem(422, "coupon_expired", "Este cupón ha vencido.");
+    }
+    if (
+      row.maxRedemptions !== null &&
+      row.maxRedemptions !== undefined &&
+      Number(row.timesRedeemed) >= Number(row.maxRedemptions)
+    ) {
+      problem(422, "coupon_exhausted", "Este cupón alcanzó su límite de canjes.");
+    }
+
+    const plan = PAYMENT_PLANS.find((p) => p.id === planId) ?? PAYMENT_PLANS[1];
+    const originalPriceCents = plan.priceCents;
+    const discountValue = Number(row.discountValue);
+    const discountCents =
+      row.discountType === "percent"
+        ? Math.min(
+            originalPriceCents,
+            Math.round((originalPriceCents * discountValue) / 100),
+          )
+        : Math.min(originalPriceCents, discountValue);
+    const finalPriceCents = Math.max(0, originalPriceCents - discountCents);
+
+    return {
+      valid: true,
+      couponId: String(row.id),
+      code: String(row.code),
+      description: String(row.description),
+      discountType: row.discountType as "percent" | "amount_cents",
+      discountValue,
+      stripeCouponId: row.stripeCouponId ? String(row.stripeCouponId) : null,
+      originalPriceCents,
+      discountCents,
+      finalPriceCents,
+    };
+  }
+
+  async cancelSubscription(userId: string) {
+    const activeRes = await this.db.pool.query(
+      `SELECT id, provider, provider_subscription_id AS "providerSubscriptionId"
+       FROM subscriptions
+       WHERE user_id = $1 AND starts_at <= now() AND expires_at > now() AND revoked_at IS NULL
+       ORDER BY expires_at DESC
+       LIMIT 1`,
+      [userId],
+    );
+    const active = activeRes.rows[0];
+    if (!active) {
+      problem(
+        404,
+        "subscription_not_found",
+        "No tienes una suscripción activa para cancelar.",
+      );
+    }
+
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const isConfigured =
+      Boolean(secretKey) &&
+      !secretKey?.startsWith("mock") &&
+      !secretKey?.startsWith("test");
+
+    if (
+      isConfigured &&
+      secretKey &&
+      active.provider === "stripe" &&
+      active.providerSubscriptionId &&
+      !String(active.providerSubscriptionId).startsWith("sub_sim_") &&
+      !String(active.providerSubscriptionId).startsWith("cs_test_")
+    ) {
+      await fetch(
+        `https://api.stripe.com/v1/subscriptions/${encodeURIComponent(String(active.providerSubscriptionId))}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+          },
+        },
+      ).catch(() => null);
+    }
+
+    await this.db.pool.query(
+      "UPDATE subscriptions SET revoked_at = now(), updated_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+      [userId],
+    );
+
+    return {
+      status: "canceled",
+      planId: "gratuito",
+    };
+  }
+
   async createCheckoutSession(
     user: { id: string; name: string; email: string },
     planId: "pro",
+    couponCode?: string,
   ) {
+    const couponInfo =
+      couponCode && couponCode.trim().length > 0
+        ? await this.validateCoupon(couponCode, planId)
+        : null;
+
+    const originalPriceCents = 29900;
+    const discountCents = couponInfo ? couponInfo.discountCents : 0;
+    const finalPriceCents = couponInfo
+      ? couponInfo.finalPriceCents
+      : originalPriceCents;
+
+    // Si el cupón otorga 100% de descuento ($0 MXN), activar de inmediato sin pasarela
+    if (couponInfo && finalPriceCents === 0) {
+      const sessionId = `cs_free_${uuidv7()}`;
+      const startsAt = new Date();
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const client = await this.db.pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          "UPDATE subscriptions SET revoked_at = now(), updated_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+          [user.id],
+        );
+        await client.query(
+          `INSERT INTO subscriptions (
+            id, user_id, plan_id, starts_at, expires_at, provider, provider_subscription_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            uuidv7(),
+            user.id,
+            planId,
+            startsAt,
+            expiresAt,
+            "coupon_free",
+            sessionId,
+          ],
+        );
+        await client.query(
+          "UPDATE promo_coupons SET times_redeemed = times_redeemed + 1 WHERE id = $1",
+          [couponInfo.couponId],
+        );
+        await client.query(
+          `INSERT INTO coupon_redemptions (
+            id, coupon_id, user_id, session_id, discount_cents, final_price_cents
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            uuidv7(),
+            couponInfo.couponId,
+            user.id,
+            sessionId,
+            discountCents,
+            finalPriceCents,
+          ],
+        );
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
+      const url = `${process.env.SITE_URL || "http://localhost:8080"}/panel?pago=exitoso&session_id=${sessionId}`;
+      return {
+        url,
+        sessionId,
+        discountCents,
+        finalPriceCents,
+        couponCode: couponInfo.code,
+      };
+    }
+
     const secretKey = process.env.STRIPE_SECRET_KEY;
     const isConfigured =
       Boolean(secretKey) &&
@@ -203,13 +407,22 @@ export class PaymentsService {
         success_url: `${process.env.SITE_URL}/panel?pago=exitoso&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.SITE_URL}/planes?pago=cancelado`,
         "line_items[0][price_data][currency]": "mxn",
-        "line_items[0][price_data][unit_amount]": "29900",
-        "line_items[0][price_data][product_data][name]": "Plan Creador Pro",
+        "line_items[0][price_data][unit_amount]": String(finalPriceCents),
+        "line_items[0][price_data][product_data][name]": couponInfo
+          ? `Plan Creador Pro (Cupón ${couponInfo.code})`
+          : "Plan Creador Pro",
         "line_items[0][price_data][recurring][interval]": "month",
         "line_items[0][quantity]": "1",
         "metadata[user_id]": user.id,
         "metadata[plan_id]": planId,
       });
+
+      if (couponInfo) {
+        params.set("metadata[coupon_code]", couponInfo.code);
+        params.set("metadata[discount_cents]", String(discountCents));
+      } else {
+        params.set("allow_promotion_codes", "true");
+      }
 
       const sessionRes = await fetch(
         "https://api.stripe.com/v1/checkout/sessions",
@@ -234,29 +447,74 @@ export class PaymentsService {
         url: string;
         id: string;
       };
-      return { url: sessionData.url, sessionId: sessionData.id };
+      return {
+        url: sessionData.url,
+        sessionId: sessionData.id,
+        discountCents,
+        finalPriceCents,
+        couponCode: couponInfo?.code ?? null,
+      };
     }
 
     // Modo simulación offline / CI (AGENTS §35)
     const sessionId = `cs_test_${uuidv7()}`;
     const startsAt = new Date();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await this.db.pool.query(
-      `INSERT INTO subscriptions (
-        id, user_id, plan_id, starts_at, expires_at, provider, provider_subscription_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        uuidv7(),
-        user.id,
-        planId,
-        startsAt,
-        expiresAt,
-        "stripe_simulated",
-        sessionId,
-      ],
-    );
+    const client = await this.db.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "UPDATE subscriptions SET revoked_at = now(), updated_at = now() WHERE user_id = $1 AND revoked_at IS NULL",
+        [user.id],
+      );
+      await client.query(
+        `INSERT INTO subscriptions (
+          id, user_id, plan_id, starts_at, expires_at, provider, provider_subscription_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          uuidv7(),
+          user.id,
+          planId,
+          startsAt,
+          expiresAt,
+          "stripe_simulated",
+          sessionId,
+        ],
+      );
+      if (couponInfo) {
+        await client.query(
+          "UPDATE promo_coupons SET times_redeemed = times_redeemed + 1 WHERE id = $1",
+          [couponInfo.couponId],
+        );
+        await client.query(
+          `INSERT INTO coupon_redemptions (
+            id, coupon_id, user_id, session_id, discount_cents, final_price_cents
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            uuidv7(),
+            couponInfo.couponId,
+            user.id,
+            sessionId,
+            discountCents,
+            finalPriceCents,
+          ],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
     const url = `${process.env.SITE_URL || "http://localhost:8080"}/panel?pago=simulado&session_id=${sessionId}`;
-    return { url, sessionId };
+    return {
+      url,
+      sessionId,
+      discountCents,
+      finalPriceCents,
+      couponCode: couponInfo?.code ?? null,
+    };
   }
 
   async handleWebhook(
@@ -335,6 +593,30 @@ export class PaymentsService {
              VALUES ($1, $2, $3, 'stripe', $4, now(), now() + interval '30 days')`,
             [uuidv7(), userId, planId, subscriptionId],
           );
+
+          const couponCode = session?.metadata?.coupon_code;
+          if (couponCode) {
+            const couponRes = await client.query(
+              "UPDATE promo_coupons SET times_redeemed = times_redeemed + 1 WHERE upper(code) = upper($1) RETURNING id",
+              [String(couponCode)],
+            );
+            if (couponRes.rows[0]) {
+              const discountCents = Number(session?.metadata?.discount_cents || 0);
+              const finalPriceCents = Math.max(0, 29900 - discountCents);
+              await client.query(
+                `INSERT INTO coupon_redemptions (id, coupon_id, user_id, session_id, discount_cents, final_price_cents)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [
+                  uuidv7(),
+                  couponRes.rows[0].id,
+                  userId,
+                  String(session?.id || subscriptionId),
+                  discountCents,
+                  finalPriceCents,
+                ],
+              );
+            }
+          }
         }
       } else if (type === "customer.subscription.updated") {
         const sub = data?.object;
@@ -394,6 +676,30 @@ export class PaymentsController {
     return this.payments.getSubscription(user.id);
   }
 
+  @Post("api/payments/coupons/validate")
+  @HttpCode(200)
+  async validateCoupon(@Req() request: FastifyRequest) {
+    const parsed = validateCouponSchema.safeParse(request.body);
+    if (!parsed.success) {
+      problem(422, "validation_failed", "Código de cupón no válido.", [
+        {
+          field: "code",
+          code: "invalid_format",
+          message: "Ingresa un código de cupón válido (3 a 40 caracteres).",
+        },
+      ]);
+    }
+    return this.payments.validateCoupon(parsed.data.code, parsed.data.planId);
+  }
+
+  @Post("api/payments/cancel")
+  @HttpCode(200)
+  async cancelSubscription(@Req() request: FastifyRequest) {
+    this.auth.csrf(request);
+    const user = await this.auth.user(request);
+    return this.payments.cancelSubscription(user.id);
+  }
+
   @Post("api/payments/checkout-session")
   @HttpCode(200)
   async createCheckoutSession(@Req() request: FastifyRequest) {
@@ -411,7 +717,11 @@ export class PaymentsController {
       ]);
     }
 
-    return this.payments.createCheckoutSession(user, parsed.data.planId);
+    return this.payments.createCheckoutSession(
+      user,
+      parsed.data.planId,
+      parsed.data.couponCode,
+    );
   }
 
   @Post("api/public/v1/webhooks/payments")

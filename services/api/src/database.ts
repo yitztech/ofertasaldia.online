@@ -1,7 +1,7 @@
 import { Injectable, OnApplicationShutdown } from "@nestjs/common";
 import { Pool } from "pg";
 
-export const CURRENT_SCHEMA_VERSION = 14;
+export const CURRENT_SCHEMA_VERSION = 15;
 
 @Injectable()
 export class Database implements OnApplicationShutdown {

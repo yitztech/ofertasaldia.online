@@ -17,6 +17,8 @@ export const ofertasDestacadas: Oferta[] = [
     valoracion: 4.8,
     resenas: 2341,
     enlace: amazon,
+    cuponCodigo: "AUDIO15",
+    cuponDescripcion: "$300 MXN de descuento extra aplicando cupón en el checkout",
   },
   {
     id: "apple-watch-9",
@@ -59,6 +61,8 @@ export const ofertasDestacadas: Oferta[] = [
     valoracion: 4.6,
     resenas: 918,
     enlace: mercadoLibre,
+    cuponCodigo: "HOGAR200",
+    cuponDescripcion: "$200 MXN de bonificación en artículos seleccionados de hogar",
   },
   {
     id: "lego-technic",

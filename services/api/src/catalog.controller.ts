@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  HttpCode,
   HttpException,
   Param,
   Post,
@@ -133,7 +134,9 @@ export class CatalogController {
        p.reviews_count AS "reviewsCount",
        p.status,
        p.last_checked_at AS "lastCheckedAt",
-       p.is_demo AS "isDemo"
+       p.is_demo AS "isDemo",
+       p.coupon_code AS "couponCode",
+       p.coupon_description AS "couponDescription"
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        WHERE ($1 = '' OR strpos(lower(p.title), lower($1)) > 0 OR strpos(lower(COALESCE(p.description, '')), lower($1)) > 0)
@@ -207,6 +210,8 @@ export class CatalogController {
        p.status,
        p.last_checked_at AS "lastCheckedAt",
        p.is_demo AS "isDemo",
+       p.coupon_code AS "couponCode",
+       p.coupon_description AS "couponDescription",
        p.created_at AS "createdAt",
        p.updated_at AS "updatedAt"
        FROM products p
@@ -234,6 +239,7 @@ export class CatalogController {
   }
 
   @Post("products/:id/check-price")
+  @HttpCode(200)
   async checkProductPrice(@Param("id") id: string) {
     if (!uuidSchema.safeParse(id).success) {
       problem(422, "validation_failed", "Identificador de producto no válido.");
@@ -300,6 +306,7 @@ export class CatalogController {
   }
 
   @Post("admin/catalog/sync")
+  @HttpCode(200)
   async syncCatalog(@Req() request: FastifyRequest) {
     const user = await this.auth.user(request);
     if (user.role !== "admin") {

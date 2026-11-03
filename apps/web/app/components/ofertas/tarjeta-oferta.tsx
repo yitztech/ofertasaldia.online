@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ExternalLinkIcon, HeartIcon, StarIcon } from "lucide-react";
+import { ExternalLinkIcon, HeartIcon, StarIcon, TicketPercentIcon } from "lucide-react";
 import { Link } from "react-router";
 import { Plataforma } from "~/components/comun/plataforma";
 import { Badge } from "~/components/ui/badge";
@@ -167,13 +167,22 @@ export function TarjetaOferta({
         <Plataforma id={oferta.plataforma} />
         <Valoracion valor={oferta.valoracion} resenas={oferta.resenas} />
       </div>
-      <p className="m-0 flex flex-wrap items-baseline gap-x-2 cifras">
+      <p className="m-0 flex flex-wrap items-baseline gap-x-2 gap-y-1 cifras">
         <span className="text-[1.0625rem] font-extrabold leading-6 text-precio">{formatearMxn(oferta.precioCentavos)}</span>
         {oferta.precioAnteriorCentavos ? (
           <del className="text-xs text-muted-foreground">
             <span className="sr-only">Precio anterior </span>
             {formatearMxn(oferta.precioAnteriorCentavos)}
           </del>
+        ) : null}
+        {oferta.cuponCodigo ? (
+          <span
+            title={oferta.cuponDescripcion || `Cupón disponible: ${oferta.cuponCodigo}`}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-acento px-1.5 py-0.5 text-xs font-bold tracking-tight text-primary"
+          >
+            <TicketPercentIcon aria-hidden="true" className="size-3" />
+            <span>{oferta.cuponCodigo}</span>
+          </span>
         ) : null}
       </p>
       <Button asChild variant={boton === "violeta" ? "violeta" : "default"} size="sm" className="mt-auto w-full">

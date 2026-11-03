@@ -262,6 +262,54 @@ const migrations = [
     SELECT id FROM products WHERE status = 'active' ORDER BY id LIMIT 1 OFFSET (s.n % 12)
   ) AS p
   ON CONFLICT (id) DO NOTHING;`,
+  `CREATE TABLE IF NOT EXISTS promo_coupons (
+    id uuid PRIMARY KEY,
+    code varchar(40) NOT NULL UNIQUE CHECK (char_length(code) BETWEEN 3 AND 40),
+    description varchar(150) NOT NULL CHECK (char_length(description) <= 150),
+    discount_type varchar(20) NOT NULL CHECK (discount_type IN ('percent', 'amount_cents')),
+    discount_value integer NOT NULL CHECK (discount_value > 0),
+    max_redemptions integer CHECK (max_redemptions IS NULL OR max_redemptions > 0),
+    times_redeemed integer NOT NULL DEFAULT 0 CHECK (times_redeemed >= 0),
+    stripe_coupon_id varchar(100),
+    active boolean NOT NULL DEFAULT true,
+    expires_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE TABLE IF NOT EXISTS coupon_redemptions (
+    id uuid PRIMARY KEY,
+    coupon_id uuid NOT NULL REFERENCES promo_coupons(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id varchar(255),
+    discount_cents bigint NOT NULL CHECK (discount_cents >= 0),
+    final_price_cents bigint NOT NULL CHECK (final_price_cents >= 0),
+    redeemed_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS coupon_redemptions_user_idx ON coupon_redemptions(user_id, redeemed_at DESC);
+  INSERT INTO promo_coupons (id, code, description, discount_type, discount_value, max_redemptions, active)
+  VALUES
+    ('01930000-0000-7000-8000-500000000001', 'PRO50', '50% de descuento en tu primer mes del Plan Creador Pro', 'percent', 50, 500, true),
+    ('01930000-0000-7000-8000-500000000002', 'AHORRA100', '$100 MXN de descuento en el Plan Creador Pro', 'amount_cents', 10000, 500, true),
+    ('01930000-0000-7000-8000-500000000003', 'PROGRATIS', '100% de cortesía en el primer mes del Plan Creador Pro', 'percent', 100, 100, true)
+  ON CONFLICT (code) DO NOTHING;
+  ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS coupon_code varchar(50) CHECK (coupon_code IS NULL OR char_length(coupon_code) <= 50),
+    ADD COLUMN IF NOT EXISTS coupon_description varchar(150) CHECK (coupon_description IS NULL OR char_length(coupon_description) <= 150);
+  UPDATE products
+  SET coupon_code = 'MELI10',
+      coupon_description = '10% adicional pagando con tarjetas participantes en Mercado Libre'
+  WHERE id = '01930000-0000-7000-8000-000000000001' AND coupon_code IS NULL;
+  UPDATE products
+  SET coupon_code = 'AUDIO15',
+      coupon_description = '$300 MXN de descuento extra aplicando cupón en el checkout'
+  WHERE id = '01930000-0000-7000-8000-000000000003' AND coupon_code IS NULL;
+  UPDATE products
+  SET coupon_code = 'HOGAR200',
+      coupon_description = '$200 MXN de bonificación en artículos seleccionados de hogar'
+  WHERE id = '01930000-0000-7000-8000-000000000004' AND coupon_code IS NULL;
+  UPDATE products
+  SET coupon_code = 'MODA10',
+      coupon_description = '10% adicional en calzado deportivo seleccionado'
+  WHERE id = '01930000-0000-7000-8000-000000000006' AND coupon_code IS NULL;`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {
