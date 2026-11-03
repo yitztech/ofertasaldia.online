@@ -19,6 +19,19 @@ La prueba crea usuarios QA en la base local y promueve solamente su fixture a ad
 
 Variables obligatorias: `IMAGE_PREFIX`, `TRUSTED_PROXY_CIDR`, `SITE_URL`, `POSTGRES_PASSWORD`, `APP_DATABASE_PASSWORD`, `SMTP_HOST`, `MAIL_FROM`. SMTP usa también `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER` y `SMTP_PASSWORD`. Ver `.env.example`. No usar el SMTP de pruebas en producción.
 
+### Configuración de `TRUSTED_PROXY_CIDR` y Traefik (Coolify)
+
+El gateway (nginx) utiliza el módulo `ngx_http_realip_module` (`set_real_ip_from`) para obtener la dirección IP real del cliente a partir de la cabecera `X-Forwarded-For`.
+- **Riesgo**: Si `TRUSTED_PROXY_CIDR` se configurara como `0.0.0.0/0` o se dejara abierta, cualquier atacante podría enviar una cabecera `X-Forwarded-For` arbitraria y eludir los límites de tasa (rate limiting) o suplantar la IP de otro usuario. El contenedor gateway valida en su script de entrada (`/docker-entrypoint.d/15-trusted-proxy.sh`) que la variable esté presente y rechaza el arranque si detecta comodines inseguros como `0.0.0.0/0` o `::/0`.
+- **Determinación de la CIDR en Coolify**:
+  1. Identificar la red Docker que conecta Traefik con la aplicación (por lo general `coolify` o la red del proyecto).
+  2. Ejecutar en el host del VPS:
+     ```sh
+     docker network inspect coolify --format '{{json .IPAM.Config}}'
+     ```
+  3. Utilizar la subred configurada (típicamente `10.0.0.0/8`, `172.18.0.0/16`, o la IP fija del contenedor Traefik terminada en `/32`, por ejemplo `172.18.0.2/32`).
+  4. En desarrollo local con Docker Compose sin proxy intermedio, se utiliza `127.0.0.1/32` o la subred local de pruebas.
+
 El 2026-11-01 se configuraron las dos contraseñas nuevas en Coolify para `ofertasaldia-web`. Sus copias están en `~/.ansible/secretos-clientes/ofertasaldia/app_postgres_root` y `app_postgres_app`, con permisos 0600. No incluir esos archivos en Git. El SMTP y dominio ya existían en Coolify. Se verificaron conexión y autenticación SMTP sin enviar mensajes; la entrega real sigue pendiente. Registrar estas variables también en el proceso de aprovisionamiento de la plataforma para conservar la fuente de verdad.
 
 OAuth es opcional hasta configurar sus credenciales: ver `OAUTH.md`. Ningún secreto llega al código cliente.

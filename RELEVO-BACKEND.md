@@ -63,6 +63,20 @@ Hecho y probado en local con el compose de producción + CI (`tests/api/hardenin
   - `tests/api/recovery.cjs`: valida que `register` genera sesión y cookie.
   - `tests/e2e/forms.cjs`: valida en navegador que registro y login redirigen a `/`, muestran la cuenta en cabecera ("Cuenta de María Pérez") y permiten entrar al panel desde ella.
 
+### Avance (rama `feat/estandares-openapi-auth-ux`)
+
+- **UUIDv7 (§21)**: Implementado generador centralizado RFC 9562 con fallback nativo (`services/api/src/uuid.ts`). Reemplazado `randomUUID()` (v4) en creación de usuarios, suscripciones, registros de auditoría y solicitudes.
+- **UX en Callback de OAuth**: Ante errores o cancelaciones en flujos iniciados desde el navegador, redirige a `/entrar?error=<código>` en lugar de emitir un error JSON plano. `apps/web/app/routes/entrar.tsx` maneja el estado mostrando alertas claras y accesibles (`role="alert"`).
+- **Especificación y Contrato OpenAPI 3.1 (§33/§32)**:
+  - Documentación completa de endpoints, esquemas y Problem Details (RFC 9457) expuesta en `/api/openapi.json` y respaldada en `docs/openapi.json`.
+  - Nueva prueba automatizada `tests/api/openapi-contract.cjs` que valida el contrato contra el esquema y el endpoint vivo.
+- **Pruebas Sistemáticas de Autorización (§32)**:
+  - Nueva prueba `tests/api/authorization.cjs`: verifica respuestas 401 para peticiones anónimas a rutas protegidas y 403 para usuarios sin rol de administración en `/api/admin/*`.
+- **Estructura de Pruebas y Scripts de Plataforma (Parte 3, §35–§37)**:
+  - `scripts/check-test-only.mjs`: comprueba que ningún servicio exclusivo de pruebas (`mailpit`) se filtre a `compose.prod.yml`, Dockerfiles o workflows de despliegue.
+  - `package.json` raíz y `scripts/test-all.mjs`: comandos estandarizados `npm test`, `npm run test:unit`, `npm run test:api`, `npm run typecheck` con resumen de ejecución y tiempos.
+- Verificación completa en local con Docker Compose (`compose.dev.yml`), suites de API y E2E Chromium (`tests/e2e/forms.cjs` con 17 comprobaciones exitosas).
+
 ### Orden propuesto
 
 1. PR «CI: mailpit sin root y solo-pruebas» → aprobación → merge → comprobar publicación/despliegue y salud.
@@ -126,6 +140,17 @@ La cuenta inicial de administrador se crea registrando un correo controlado y ej
 
 ## Continuación
 
-Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Ejecutar E2E desde la raíz con `node tests/e2e/forms.cjs` después de instalar Playwright en `tests/e2e` y arrancar el Compose dev. Nunca apuntar la prueba con fixtures de administrador a producción.
+Guía de operación: `docs/DESPLIEGUE-BACKEND.md`. OAuth: `docs/OAUTH.md`. Plan de seguridad por sesiones: `docs/PLAN-SEGURIDAD.md`. Ejecutar E2E desde la raíz con `node tests/e2e/forms.cjs` después de instalar Playwright en `tests/e2e` y arrancar el Compose dev. Nunca apuntar la prueba con fixtures de administrador a producción.
+
+### Sesión 1 de Seguridad completada (2026-11-02, PR #8)
+- **Rate limiting anti-DoS**: Clave de intentos estructurada por tupla `[ip, ip:cuenta]` en `services/api/src/auth.ts`. Los intentos fallidos solo se incrementan en fallos de credenciales (`recordFailedLogin`), y se limpian con `clearLoginFailures` tras autenticación correcta. Un atacante en una IP no puede bloquear la cuenta de una víctima en otra IP.
+- **Registro anti-enumeración (409 Conflict)**: `POST /api/auth/register` responde 409 con RFC 9457 `account_already_exists` ante colisión de correo. `apps/web/app/routes/registro.tsx` muestra banner accesible con enlaces a `/entrar` y `/recuperar` y marca el campo de correo en rojo.
+- **OpenAPI 3.1**: Respuestas `409 Conflict` agregadas a `services/api/src/openapi.ts` y `docs/openapi.json`.
+- **Verificación**: `npm test` verde (unit, openapi, typecheck); pruebas en contenedor API (`hardening.cjs`, `recovery.cjs`, `authorization.cjs`, `oauth.cjs`) y Playwright E2E (`forms.cjs` con 18 checks) 100% pasando.
+
+### Sesión 2 de Seguridad completada (2026-11-02, PR #8)
+- **Purga periódica y al arranque**: `MaintenanceService` en `services/api/src/maintenance.ts` purga `auth_attempts`, `password_tokens`, `sessions` y `oauth_flows` vencidos en el arranque y programa tarea horaria recurrente en `pg-boss` (`0 * * * *`). Expuesto endpoint protegido `POST /api/admin/maintenance/purge` con registro en `admin_audit`.
+- **Resiliencia de PostgreSQL**: Pool configurado en `services/api/src/database.ts` con `max: 8`, `connectionTimeoutMillis: 2500` y `statement_timeout: 2000`. Cero errores 500/503 bajo ráfagas concurrentes.
+- **Verificación**: Nueva suite `tests/api/maintenance.cjs` (15 peticiones concurrentes y prueba de ciclo de vida de registros temporales); OpenAPI 3.1 actualizado; `npm test` y pruebas E2E pasando.
 
 Los archivos `.impeccable/`, `DESIGN.md`, `PRODUCT.md`, sus equivalentes en `apps/web` y `design/` ya estaban sin seguimiento; se preservaron y no forman parte del cambio.

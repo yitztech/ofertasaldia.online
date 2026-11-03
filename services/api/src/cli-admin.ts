@@ -1,6 +1,6 @@
 import { Pool } from "pg";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { uuidv7 } from "./uuid.js";
 async function main() {
   const email = z.email().max(254).parse(process.argv[2]);
   const pool = new Pool(
@@ -24,7 +24,7 @@ async function main() {
       throw new Error("Registra primero una cuenta activa.");
     await c.query(
       "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$2)",
-      [randomUUID(), r.rows[0].id, "admin_bootstrapped"],
+      [uuidv7(), r.rows[0].id, "admin_bootstrapped"],
     );
     await c.query("COMMIT");
     console.log("Administrador configurado.");

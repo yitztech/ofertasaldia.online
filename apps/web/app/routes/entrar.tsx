@@ -68,6 +68,21 @@ export default function Entrar() {
             <AlertDescription>Tu contraseña se actualizó. Ya puedes iniciar sesión.</AlertDescription>
           </Alert>
         ) : null}
+        {params.get("error") ? (
+          <Alert role="alert">
+            <AlertDescription>
+              {params.get("error") === "account_link_required"
+                ? "Ya existe una cuenta con ese correo. Accede con su método original."
+                : params.get("error") === "account_suspended"
+                ? "La cuenta no está disponible."
+                : params.get("error") === "unverified_email"
+                ? "El proveedor debe verificar tu correo antes de continuar."
+                : params.get("error") === "oauth_cancelled"
+                ? "Acceso cancelado. Puedes intentarlo de nuevo cuando desees."
+                : "No se pudo iniciar sesión con tu cuenta social. Inténtalo de nuevo."}
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <CampoTexto
           id="correo"
           name="correo"

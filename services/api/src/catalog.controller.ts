@@ -1,9 +1,15 @@
 import { Controller, Get, HttpException, Query } from "@nestjs/common";
 import { Database } from "./database.js";
+import { openApiSpec } from "./openapi.js";
 
 @Controller("api")
 export class CatalogController {
   constructor(private readonly db: Database) {}
+
+  @Get("openapi.json")
+  openapi() {
+    return openApiSpec;
+  }
 
   @Get("categories")
   async categories() {

@@ -22,6 +22,17 @@ async function post(path, body, cookie) {
   });
   assert.equal(reg.status, 201);
   assert.ok(reg.headers.get("set-cookie"), "registro crea sesión y cookie");
+  const dup = await post("register", {
+    name: "María Pérez Duplicada",
+    email,
+    password: "AnotherPassword123!",
+    termsAccepted: true,
+  });
+  assert.equal(dup.status, 409, "registro duplicado debe responder 409 Conflict");
+  const dupProblem = await dup.json();
+  assert.equal(dupProblem.code, "account_already_exists");
+  assert.equal(dupProblem.errors?.[0]?.field, "email");
+  assert.equal(dupProblem.errors?.[0]?.code, "already_exists");
   const login = await post("login", { email, password: "Initial123!" });
   assert.equal(login.status, 201);
   const cookie = login.headers.get("set-cookie").split(";")[0];
@@ -32,7 +43,8 @@ async function post(path, body, cookie) {
       await fetch("http://mailpit:8025/api/v1/messages")
     ).json();
     message = list.messages?.find((m) =>
-      m.To?.some((to) => to.Address === email),
+      m.To?.some((to) => to.Address === email) &&
+      m.Subject?.includes("Restablecer"),
     );
     if (message) break;
     await new Promise((r) => setTimeout(r, 1000));

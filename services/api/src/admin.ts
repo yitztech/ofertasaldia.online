@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { AuthService, problem } from "./auth.js";
 import { Database } from "./database.js";
+import { MaintenanceService } from "./maintenance.js";
+import { uuidv7 } from "./uuid.js";
 const idSchema = z.uuid();
 function filters(query: unknown) {
   const parsed = z
@@ -35,6 +36,7 @@ export class AdminController {
   constructor(
     private readonly db: Database,
     private readonly auth: AuthService,
+    private readonly maintenance: MaintenanceService,
   ) {}
   private async admin(request: FastifyRequest) {
     const user = await this.auth.user(request);
@@ -95,7 +97,9 @@ export class AdminController {
       ).rows,
     );
   }
-  @Post("users/:id/suspension") async suspend(
+  @Post("users/:id/suspension")
+  @HttpCode(200)
+  async suspend(
     @Req() request: FastifyRequest,
     @Param("id") id: string,
     @Body() body: unknown,
@@ -105,21 +109,43 @@ export class AdminController {
     const data = z.object({ suspended: z.boolean() }).strict().safeParse(body);
     if (!idSchema.safeParse(id).success || !data.success)
       problem(422, "validation_failed", "Datos no válidos.");
+
+    if (id === actor.id && data.data.suspended) {
+      problem(400, "cannot_suspend_self", "No puedes suspender tu propia cuenta.");
+    }
+
     const c = await this.db.pool.connect();
     try {
       await c.query("BEGIN");
-      const result = await c.query(
-        `UPDATE users SET suspended_at=CASE WHEN $2 THEN now() ELSE NULL END,updated_at=now() WHERE id=$1 AND role<>'admin' RETURNING id`,
+      const targetUser = await c.query(
+        "SELECT id, role, suspended_at FROM users WHERE id=$1 FOR UPDATE",
+        [id],
+      );
+      if (!targetUser.rows.length) {
+        problem(404, "not_found", "Usuario no disponible.");
+      }
+      const target = targetUser.rows[0];
+
+      if (target.role === "admin" && data.data.suspended) {
+        const activeAdmins = await c.query(
+          "SELECT count(*)::int AS count FROM users WHERE role='admin' AND suspended_at IS NULL AND id <> $1",
+          [id],
+        );
+        if (activeAdmins.rows[0].count < 1) {
+          problem(400, "last_admin_protection", "No se puede suspender al único administrador activo.");
+        }
+      }
+
+      await c.query(
+        `UPDATE users SET suspended_at=CASE WHEN $2 THEN now() ELSE NULL END,updated_at=now() WHERE id=$1`,
         [id, data.data.suspended],
       );
-      if (!result.rows.length)
-        problem(404, "not_found", "Usuario no disponible.");
       if (data.data.suspended)
         await c.query("DELETE FROM sessions WHERE user_id=$1", [id]);
       await c.query(
         "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
         [
-          randomUUID(),
+          uuidv7(),
           actor.id,
           data.data.suspended ? "user_suspended" : "user_reactivated",
           id,
@@ -134,7 +160,9 @@ export class AdminController {
     }
     return { status: "ok" };
   }
-  @Post("users/:id/subscription") async subscription(
+  @Post("users/:id/subscription")
+  @HttpCode(200)
+  async subscription(
     @Req() request: FastifyRequest,
     @Param("id") id: string,
     @Body() body: unknown,
@@ -165,11 +193,11 @@ export class AdminController {
       );
       await c.query(
         "INSERT INTO subscriptions(id,user_id,starts_at,expires_at) VALUES ($1,$2,now(),$3)",
-        [randomUUID(), id, data.data.expiresAt],
+        [uuidv7(), id, data.data.expiresAt],
       );
       await c.query(
         "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
-        [randomUUID(), actor.id, "subscription_activated", id],
+        [uuidv7(), actor.id, "subscription_activated", id],
       );
       await c.query("COMMIT");
     } catch (e) {
@@ -179,5 +207,17 @@ export class AdminController {
       c.release();
     }
     return { status: "ok" };
+  }
+  @Post("maintenance/purge")
+  @HttpCode(200)
+  async purge(@Req() request: FastifyRequest) {
+    const actor = await this.admin(request);
+    this.auth.csrf(request);
+    const purged = await this.maintenance.purgeExpiredRecords();
+    await this.db.pool.query(
+      "INSERT INTO admin_audit(id,actor_id,action,target_id) VALUES ($1,$2,$3,$4)",
+      [uuidv7(), actor.id, "maintenance_purge", actor.id],
+    );
+    return { status: "ok", purged };
   }
 }

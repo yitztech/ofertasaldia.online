@@ -227,6 +227,9 @@ jobs:
   escenarios:
     name: Escenarios
     runs-on: ubuntu-latest
+    env:
+      SITE_URL: http://localhost:8080
+      TARGET_URL: http://localhost:8080
     steps:
       - uses: actions/checkout@v7
       - name: Herramientas E2E

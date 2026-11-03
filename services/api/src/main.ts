@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { Problems } from "./problems.js";
 import { AdminController } from "./admin.js";
+import { uuidv7 } from "./uuid.js";
 import "reflect-metadata";
 import {
   Controller,
@@ -20,6 +20,7 @@ import { CatalogController } from "./catalog.controller.js";
 import cookie from "@fastify/cookie";
 import { AuthController, AuthService } from "./auth.js";
 import { MailService } from "./mail.js";
+import { MaintenanceService } from "./maintenance.js";
 import { OAuthController } from "./oauth.js";
 
 @Controller()
@@ -54,7 +55,7 @@ class HealthController {
     AdminController,
     OAuthController,
   ],
-  providers: [Database, AuthService, MailService],
+  providers: [Database, AuthService, MailService, MaintenanceService],
 })
 class AppModule {}
 
@@ -112,7 +113,7 @@ async function bootstrap() {
     const id =
       typeof header === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(header)
         ? header
-        : randomUUID();
+        : uuidv7();
     request.headers["x-request-id"] = id;
     reply.header("X-Request-ID", id);
   });

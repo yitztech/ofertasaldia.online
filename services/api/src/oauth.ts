@@ -1,8 +1,9 @@
-import { All, Controller, Get, Param, Req, Res } from "@nestjs/common";
+import { All, Controller, Get, HttpException, Param, Req, Res } from "@nestjs/common";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { Database } from "./database.js";
 import { AuthService, problem } from "./auth.js";
+import { uuidv7 } from "./uuid.js";
 
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -43,6 +44,22 @@ async function configuration(value: Provider) {
   );
   client.enableNonRepudiationChecks(config);
   return { client, config };
+}
+
+function failOAuth(
+  reply: FastifyReply,
+  cookieName: string,
+  wantsHtml: boolean,
+  status: number,
+  code: string,
+  message: string,
+): never {
+  reply.clearCookie(cookieName, { path: "/" });
+  if (wantsHtml) {
+    reply.code(302).redirect(`/entrar?error=${encodeURIComponent(code)}`);
+    throw new HttpException("redirected", 302);
+  }
+  problem(status, code, message);
 }
 
 @Controller("api/auth/oauth")
@@ -104,11 +121,20 @@ export class OAuthController {
   ) {
     const value = provider(requested);
     const { callback } = settings(value);
+    const wantsHtml =
+      typeof request.headers.accept === "string" &&
+      request.headers.accept.includes("text/html");
+    const cookieName = this.flowCookie();
+    function fail(status: number, code: string, message: string): never {
+      return failOAuth(reply, cookieName, wantsHtml, status, code, message);
+    }
+
     if (
       (value === "google" && request.method !== "GET") ||
       (value === "apple" && request.method !== "POST")
-    )
-      problem(405, "method_not_allowed", "Método no permitido.");
+    ) {
+      fail(405, "method_not_allowed", "Método no permitido.");
+    }
     const input = (request.method === "POST" ? request.body : request.query) as
       | Record<string, unknown>
       | undefined;
@@ -118,29 +144,32 @@ export class OAuthController {
       input.state.length > 200 ||
       typeof input.code !== "string" ||
       input.code.length > 4096
-    )
-      problem(
+    ) {
+      fail(
         400,
         "invalid_oauth_response",
         "La respuesta del proveedor no es válida.",
       );
+    }
     const binding = request.cookies[this.flowCookie()];
-    if (!binding || binding.length > 100)
-      problem(
+    if (!binding || binding.length > 100) {
+      fail(
         400,
         "invalid_oauth_state",
         "El acceso ha vencido. Inténtalo de nuevo.",
       );
+    }
     const result = await this.db.pool.query(
       `DELETE FROM oauth_flows WHERE state_hash=$1 AND provider=$2 AND binding_hash=$3 AND expires_at>now() RETURNING nonce,verifier`,
       [digest(input.state), value, digest(binding)],
     );
-    if (!result.rows[0])
-      problem(
+    if (!result.rows[0]) {
+      fail(
         400,
         "invalid_oauth_state",
         "El acceso ha vencido. Inténtalo de nuevo.",
       );
+    }
     reply.clearCookie(this.flowCookie(), { path: "/" });
     let claims;
     try {
@@ -168,7 +197,7 @@ export class OAuthController {
       });
       claims = tokens.claims();
     } catch {
-      problem(
+      fail(
         401,
         "invalid_oauth_identity",
         "No se pudo verificar tu identidad. Inténtalo de nuevo.",
@@ -181,12 +210,13 @@ export class OAuthController {
       typeof claims.email !== "string" ||
       claims.email.length > 254 ||
       ![true, "true"].includes(claims.email_verified as boolean | string)
-    )
-      problem(
+    ) {
+      fail(
         401,
         "unverified_email",
         "El proveedor debe verificar tu correo.",
       );
+    }
     const connection = await this.db.pool.connect();
     let userId: string;
     const session = randomBytes(32).toString("base64url");
@@ -202,21 +232,23 @@ export class OAuthController {
         [value, claims.sub],
       );
       if (identity.rows[0]) {
-        if (identity.rows[0].suspended_at)
-          problem(403, "account_suspended", "La cuenta no está disponible.");
+        if (identity.rows[0].suspended_at) {
+          fail(403, "account_suspended", "La cuenta no está disponible.");
+        }
         userId = identity.rows[0].id;
       } else {
         const existing = await connection.query(
           "SELECT id FROM users WHERE lower(email)=lower($1)",
           [claims.email],
         );
-        if (existing.rows[0])
-          problem(
+        if (existing.rows[0]) {
+          fail(
             409,
             "account_link_required",
             "Ya existe una cuenta con ese correo. Accede con su método original.",
           );
-        userId = randomUUID();
+        }
+        userId = uuidv7();
         // Provider names are optional and not trusted as validated personal names.
         await connection.query(
           `INSERT INTO users(id,name,email,verified_at) VALUES ($1,'Usuario',$2,now())`,

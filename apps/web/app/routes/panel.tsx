@@ -2,7 +2,7 @@ import { Alert, AlertDescription } from "~/components/ui/alert";
 import { useMemo, useState } from "react";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import { Suspense } from "react";
-import { Await, redirect } from "react-router";
+import { Await, Link, redirect } from "react-router";
 import type { Route } from "./+types/panel";
 import { CabeceraAfiliado } from "~/components/afiliado/cabecera-afiliado";
 import { Pestanas } from "~/components/afiliado/pestanas";
@@ -41,7 +41,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   } catch { throw new Response('Servicio temporalmente no disponible', { status: 503 }); }
   if (response.status === 401) throw redirect('/entrar');
   if (!response.ok) throw new Response('Servicio temporalmente no disponible', { status: 503 });
+  const usuario = (await response.json()) as { id: string; name: string; email: string; role: string; verifiedAt: string | null };
   return {
+    usuario,
     afiliado: panel.afiliado(),
     conteos: panel.conteos(),
     resumen: panel.resumen(),
@@ -179,7 +181,7 @@ function ListaProductos({ productos, conteos }: { productos: ProductoPanel[]; co
 }
 
 export default function Panel({ loaderData }: Route.ComponentProps) {
-  const { afiliado, conteos, resumen, clics, categoriasPrincipales, productos } = loaderData;
+  const { usuario, afiliado, conteos, resumen, clics, categoriasPrincipales, productos } = loaderData;
   const [pestana, setPestana] = useState("productos");
   return (
     <>
@@ -195,6 +197,18 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
       <main id="contenido" className="contenedor grid gap-4 py-4 lg:grid-cols-[14rem_1fr] lg:gap-6">
         <BarraLateralPanel />
         <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_22rem]">
+          {!usuario?.verifiedAt ? (
+            <Alert variant="default" role="region" aria-label="Aviso de verificación de correo" className="border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-200 xl:col-span-2">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  Tu correo electrónico (<strong>{usuario?.email}</strong>) no ha sido verificado. Por favor, confirma tu cuenta para activar todas las funciones.
+                </span>
+                <Link to={`/verificar?correo=${encodeURIComponent(usuario?.email ?? "")}`} className="font-semibold underline hover:no-underline">
+                  Verificar correo
+                </Link>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <Alert className="xl:col-span-2"><AlertDescription>Panel de demostración: los productos, el perfil y las estadísticas son ejemplos y no representan la actividad de tu cuenta.</AlertDescription></Alert>
           <div className="flex min-w-0 flex-col gap-6">
             <CabeceraAfiliado afiliado={afiliado} variante="panel" />

@@ -7,8 +7,8 @@ const root = process.env.TARGET_URL || "http://localhost:8080";
 const results = path.join(process.cwd(), "tests/e2e/results");
 fs.mkdirSync(results, { recursive: true });
 fs.rmSync(path.join(results, "failure.txt"), { force: true });
-function mail(email) {
-  const script = `fetch('http://mailpit:8025/api/v1/messages').then(r=>r.json()).then(async list=>{const m=list.messages.find(m=>m.To.some(t=>t.Address===${JSON.stringify(email)}));if(!m)return console.log('null');console.log(JSON.stringify(await(await fetch('http://mailpit:8025/api/v1/message/'+m.ID)).json()))})`;
+function mail(email, subjectFilter = "") {
+  const script = `fetch('http://mailpit:8025/api/v1/messages').then(r=>r.json()).then(async list=>{const m=list.messages.find(m=>m.To.some(t=>t.Address===${JSON.stringify(email)}) && (!${JSON.stringify(subjectFilter)} || (m.Subject && m.Subject.includes(${JSON.stringify(subjectFilter)}))));if(!m)return console.log('null');console.log(JSON.stringify(await(await fetch('http://mailpit:8025/api/v1/message/'+m.ID)).json()))})`;
   return JSON.parse(
     execFileSync(
       "docker",
@@ -81,6 +81,22 @@ function mail(email) {
     await page.waitForURL((url) => url.pathname === "/");
     await page.getByLabel("Cuenta de María Pérez").waitFor();
     checks.push("registro redirige a portada logueado");
+    // Registro duplicado muestra alerta accesible y no crea nueva sesión
+    await page.goto(root + "/registro");
+    await page.locator("#nombre").fill("María Pérez Duplicada");
+    await page.locator("#correo").fill(email);
+    await page.locator("#contrasena").fill("OtraPassword123!");
+    await page.locator("[name=terminos]").check();
+    await page
+      .getByRole("button", { name: "Crear cuenta", exact: true })
+      .click();
+    await page
+      .getByRole("alert")
+      .filter({ hasText: "Ya existe una cuenta con este correo" })
+      .first()
+      .waitFor();
+    await page.locator("#correo-error").waitFor();
+    checks.push("registro duplicado muestra alerta accesible y error de campo");
     await page.goto(root + "/entrar");
     await page.locator("#correo").fill(email);
     await page.locator("#contrasena").fill("Wrong123!");
@@ -102,6 +118,8 @@ function mail(email) {
     await page.getByLabel("Cuenta de María Pérez").click();
     await page.waitForURL("**/panel");
     checks.push("panel accesible desde cabecera");
+    await page.getByText("no ha sido verificado").waitFor();
+    checks.push("aviso de verificación en panel");
     await page.goto(root + "/admin/");
     await page
       .getByRole("alert")
@@ -119,7 +137,7 @@ function mail(email) {
       .waitFor();
     let message;
     for (let i = 0; i < 25; i++) {
-      message = mail(email);
+      message = mail(email, "Restablecer");
       if (message) break;
       await page.waitForTimeout(1000);
     }
@@ -174,8 +192,16 @@ function mail(email) {
       .click();
     await page.waitForURL("**/admin/");
     await page.getByRole("heading", { name: "Usuarios y planes" }).waitFor();
+    await page.locator("#admin-search").fill(email);
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
     await page.getByRole("cell", { name: email, exact: true }).waitFor();
     checks.push("admin autorizado y listado real");
+    // Verificación de salvaguardas: la fila propia muestra "Tu cuenta" y botón "Suspender" deshabilitado
+    const adminRow = page.getByRole("row").filter({ hasText: email });
+    await adminRow.getByText("Tu cuenta").waitFor();
+    const suspendSelfBtn = adminRow.getByRole("button", { name: "Suspender", exact: true });
+    assert.ok(await suspendSelfBtn.isDisabled(), "El botón de suspender en la propia cuenta debe estar deshabilitado");
+    checks.push("protección visual de auto-suspensión de admin");
     await page.screenshot({
       path: path.join(results, "admin-desktop.png"),
       fullPage: true,

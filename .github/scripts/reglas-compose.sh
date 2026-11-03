@@ -17,6 +17,7 @@ errores=$(docker compose -f "$compose" config --format json | jq -r '
   (if (($v.cap_drop // []) | index("ALL")) == null then "\($s): falta cap_drop: [ALL] (CON-03)" else empty end),
   (if (($v.security_opt // []) | index("no-new-privileges:true")) == null then "\($s): falta no-new-privileges (CON-03)" else empty end),
   (if $v.healthcheck == null then "\($s): falta healthcheck (CON-04)" else empty end),
+  (if $s == "gateway" and (($v.environment.TRUSTED_PROXY_CIDR // "") == "" or ($v.environment.TRUSTED_PROXY_CIDR == "0.0.0.0/0")) then "\($s): TRUSTED_PROXY_CIDR no puede estar vacía ni ser 0.0.0.0/0 (SEC-01)" else empty end),
   (if ($v.logging.options["max-size"] // null) == null then "\($s): logs sin rotar, falta max-size (CON-02)" else empty end)
 ')
 
