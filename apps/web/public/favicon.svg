@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#1d4ed8"/><path d="M9 17l5 5 9-12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 46" fill="none">
+  <defs>
+    <linearGradient id="bagGrad" x1="4" y1="10" x2="34" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d926a9"/>
+      <stop offset="55%" stop-color="#9333ea"/>
+      <stop offset="100%" stop-color="#6d28d9"/>
+    </linearGradient>
+    <linearGradient id="flapGrad" x1="11" y1="10" x2="27" y2="27" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#d946ef"/>
+    </linearGradient>
+  </defs>
+  <path d="M11.5 13V11.5C11.5 7.35786 14.8579 4 19 4C23.1421 4 26.5 7.35786 26.5 11.5V13" stroke="#7e22ce" stroke-width="3.6" stroke-linecap="round"/>
+  <rect x="4" y="11" width="30" height="31" rx="7" fill="url(#bagGrad)"/>
+  <path d="M11 11H27L24.5 24C24.1 26.2 21.8 27.8 19 27.8C16.2 27.8 13.9 26.2 13.5 24L11 11Z" fill="url(#flapGrad)"/>
+  <path d="M14.2 18.5L19 33.5L23.8 18.5" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
