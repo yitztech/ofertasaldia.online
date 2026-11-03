@@ -1,11 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ExternalLinkIcon, HeartIcon, StarIcon } from "lucide-react";
+import { Link } from "react-router";
 import { Plataforma } from "~/components/comun/plataforma";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import type { Oferta } from "~/datos/tipos";
 import { formatearMxn, formatearNumero, formatearValoracion } from "~/lib/formato";
+import { urlOferta } from "~/lib/slug";
 import { cn } from "~/utils";
+
+const UUID_CHECK = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const STORAGE_KEY = "oad_favoritos";
+
+function leerFavoritosLocal(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function guardarFavoritosLocal(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Ignorar errores de almacenamiento privado
+  }
+}
 
 export function InsigniaOferta({ oferta, className }: { oferta: Oferta; className?: string }) {
   if (oferta.etiqueta === "mas-vendido") {
@@ -24,16 +50,57 @@ export function InsigniaOferta({ oferta, className }: { oferta: Oferta; classNam
   );
 }
 
-export function BotonFavorito({ nombre, className }: { nombre: string; className?: string }) {
-  const [activo, setActivo] = useState(false);
+export function BotonFavorito({
+  productoId,
+  nombre,
+  inicialFavorito = false,
+  className,
+}: {
+  productoId?: string;
+  nombre: string;
+  inicialFavorito?: boolean;
+  className?: string;
+}) {
+  const [activo, setActivo] = useState(inicialFavorito);
+
+  useEffect(() => {
+    if (!productoId) return;
+    if (inicialFavorito) {
+      setActivo(true);
+      return;
+    }
+    const guardados = leerFavoritosLocal();
+    if (guardados.has(productoId)) {
+      setActivo(true);
+    }
+  }, [productoId, inicialFavorito]);
+
+  const alternar = () => {
+    const siguiente = !activo;
+    setActivo(siguiente);
+    if (productoId) {
+      const guardados = leerFavoritosLocal();
+      if (siguiente) guardados.add(productoId);
+      else guardados.delete(productoId);
+      guardarFavoritosLocal(guardados);
+
+      if (UUID_CHECK.test(productoId)) {
+        void fetch(`/api/favorites/${encodeURIComponent(productoId)}`, {
+          method: siguiente ? "POST" : "DELETE",
+          headers: { "x-csrf": "1" },
+        }).catch(() => {});
+      }
+    }
+  };
+
   return (
     <button
       type="button"
       aria-pressed={activo}
       aria-label={`${activo ? "Quitar de" : "Guardar en"} favoritos: ${nombre}`}
-      onClick={() => setActivo((v) => !v)}
+      onClick={alternar}
       className={cn(
-        "inline-grid size-9 cursor-pointer place-items-center rounded-full text-foreground transition-colors hover:bg-acento hover:text-primary",
+        "inline-grid size-11 cursor-pointer place-items-center rounded-full text-foreground transition-colors hover:bg-acento hover:text-primary",
         className,
       )}
     >
@@ -62,19 +129,26 @@ interface TarjetaOfertaProps {
 }
 
 export function TarjetaOferta({ oferta, boton = "marca" }: TarjetaOfertaProps) {
+  const rutaFicha = urlOferta(oferta);
   return (
     <article className="relative flex h-full flex-col gap-2.5 rounded-2xl border border-border bg-card p-3 shadow-tarjeta transition-shadow hover:shadow-[0_14px_32px_-14px_rgb(110_40_170/0.32)]">
       <div className="flex h-36 items-center justify-center pt-6">
         <InsigniaOferta oferta={oferta} className="absolute left-3 top-3" />
-        <BotonFavorito nombre={oferta.nombre} className="absolute right-2.5 top-2.5" />
-        <img
-          src={oferta.imagen}
-          alt=""
-          loading="lazy"
-          className="max-h-full max-w-[85%] object-contain mix-blend-multiply"
-        />
+        <BotonFavorito productoId={oferta.id} nombre={oferta.nombre} className="absolute right-1.5 top-1.5" />
+        <Link to={rutaFicha} tabIndex={-1} aria-hidden="true" className="flex h-full w-full items-center justify-center">
+          <img
+            src={oferta.imagen}
+            alt=""
+            loading="lazy"
+            className="max-h-full max-w-[85%] object-contain mix-blend-multiply"
+          />
+        </Link>
       </div>
-      <h3 className="m-0 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5">{oferta.nombre}</h3>
+      <h3 className="m-0 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5">
+        <Link to={rutaFicha} className="text-foreground no-underline hover:text-primary">
+          {oferta.nombre}
+        </Link>
+      </h3>
       <div className="flex items-center justify-between gap-2">
         <Plataforma id={oferta.plataforma} />
         <Valoracion valor={oferta.valoracion} resenas={oferta.resenas} />

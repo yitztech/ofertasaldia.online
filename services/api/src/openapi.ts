@@ -74,12 +74,17 @@ export const openApiSpec = {
     },
     "/api/products": {
       get: {
-        summary: "Listado de productos y ofertas",
+        summary: "Listado de productos y ofertas con filtros avanzados",
         operationId: "getProducts",
         parameters: [
           { name: "q", in: "query", schema: { type: "string", maxLength: 100 } },
           { name: "category", in: "query", schema: { type: "string", maxLength: 50 } },
           { name: "platform", in: "query", schema: { type: "string", enum: ["amazon", "mercadolibre"] } },
+          { name: "minDiscount", in: "query", schema: { type: "integer", minimum: 0, maximum: 99 } },
+          { name: "minPriceCents", in: "query", schema: { type: "integer", minimum: 0 } },
+          { name: "maxPriceCents", in: "query", schema: { type: "integer", minimum: 0 } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["active", "paused", "closed"] } },
+          { name: "sort", in: "query", schema: { type: "string", enum: ["recent", "discount", "price_asc", "price_desc", "rating"] } },
           { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
           { name: "cursor", in: "query", schema: { type: "string", maxLength: 100 } },
         ],
@@ -97,6 +102,47 @@ export const openApiSpec = {
                       items: { $ref: "#/components/schemas/Product" },
                     },
                     nextCursor: { type: ["string", "null"] },
+                  },
+                },
+              },
+            },
+          },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/products/suggestions": {
+      get: {
+        summary: "Sugerencias de autocompletado para el buscador de productos",
+        operationId: "getProductSuggestions",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string", maxLength: 100 } },
+        ],
+        responses: {
+          "200": {
+            description: "Lista de sugerencias rápidas",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["id", "title", "categoryId", "platform", "priceCents"],
+                        properties: {
+                          id: { type: "string", format: "uuid" },
+                          title: { type: "string", maxLength: 150 },
+                          categoryId: { type: "string", maxLength: 50 },
+                          categoryName: { type: ["string", "null"] },
+                          platform: { type: "string", enum: ["amazon", "mercadolibre"] },
+                          priceCents: { type: "string" },
+                          discountPercentage: { type: ["integer", "null"] },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -1191,6 +1237,95 @@ export const openApiSpec = {
             },
           },
           "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
+    "/api/favorites": {
+      get: {
+        summary: "Listado de productos guardados en favoritos por el usuario autenticado",
+        operationId: "listFavorites",
+        responses: {
+          "200": {
+            description: "Productos guardados en favoritos",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["items", "productIds"],
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/Product" },
+                    },
+                    productIds: {
+                      type: "array",
+                      items: { type: "string", format: "uuid" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/api/favorites/{productId}": {
+      post: {
+        summary: "Guardar producto en favoritos",
+        operationId: "addFavorite",
+        parameters: [
+          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Producto añadido a favoritos",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "productId", "saved"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    productId: { type: "string", format: "uuid" },
+                    saved: { type: "boolean", enum: [true] },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+      delete: {
+        summary: "Eliminar producto de favoritos",
+        operationId: "removeFavorite",
+        parameters: [
+          { name: "productId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Producto eliminado de favoritos",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "productId", "saved"],
+                  properties: {
+                    status: { type: "string", enum: ["ok"] },
+                    productId: { type: "string", format: "uuid" },
+                    saved: { type: "boolean", enum: [false] },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/Forbidden" },
           "422": { $ref: "#/components/responses/ValidationError" },
         },
       },
