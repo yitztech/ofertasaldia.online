@@ -190,8 +190,16 @@ function mail(email) {
       .click();
     await page.waitForURL("**/admin/");
     await page.getByRole("heading", { name: "Usuarios y planes" }).waitFor();
+    await page.locator("#admin-search").fill(email);
+    await page.getByRole("button", { name: "Buscar", exact: true }).click();
     await page.getByRole("cell", { name: email, exact: true }).waitFor();
     checks.push("admin autorizado y listado real");
+    // Verificación de salvaguardas: la fila propia muestra "Tu cuenta" y botón "Suspender" deshabilitado
+    const adminRow = page.getByRole("row").filter({ hasText: email });
+    await adminRow.getByText("Tu cuenta").waitFor();
+    const suspendSelfBtn = adminRow.getByRole("button", { name: "Suspender", exact: true });
+    assert.ok(await suspendSelfBtn.isDisabled(), "El botón de suspender en la propia cuenta debe estar deshabilitado");
+    checks.push("protección visual de auto-suspensión de admin");
     await page.screenshot({
       path: path.join(results, "admin-desktop.png"),
       fullPage: true,

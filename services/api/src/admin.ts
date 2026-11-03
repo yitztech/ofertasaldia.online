@@ -97,7 +97,9 @@ export class AdminController {
       ).rows,
     );
   }
-  @Post("users/:id/suspension") async suspend(
+  @Post("users/:id/suspension")
+  @HttpCode(200)
+  async suspend(
     @Req() request: FastifyRequest,
     @Param("id") id: string,
     @Body() body: unknown,
@@ -107,15 +109,37 @@ export class AdminController {
     const data = z.object({ suspended: z.boolean() }).strict().safeParse(body);
     if (!idSchema.safeParse(id).success || !data.success)
       problem(422, "validation_failed", "Datos no válidos.");
+
+    if (id === actor.id && data.data.suspended) {
+      problem(400, "cannot_suspend_self", "No puedes suspender tu propia cuenta.");
+    }
+
     const c = await this.db.pool.connect();
     try {
       await c.query("BEGIN");
-      const result = await c.query(
-        `UPDATE users SET suspended_at=CASE WHEN $2 THEN now() ELSE NULL END,updated_at=now() WHERE id=$1 AND role<>'admin' RETURNING id`,
+      const targetUser = await c.query(
+        "SELECT id, role, suspended_at FROM users WHERE id=$1 FOR UPDATE",
+        [id],
+      );
+      if (!targetUser.rows.length) {
+        problem(404, "not_found", "Usuario no disponible.");
+      }
+      const target = targetUser.rows[0];
+
+      if (target.role === "admin" && data.data.suspended) {
+        const activeAdmins = await c.query(
+          "SELECT count(*)::int AS count FROM users WHERE role='admin' AND suspended_at IS NULL AND id <> $1",
+          [id],
+        );
+        if (activeAdmins.rows[0].count < 1) {
+          problem(400, "last_admin_protection", "No se puede suspender al único administrador activo.");
+        }
+      }
+
+      await c.query(
+        `UPDATE users SET suspended_at=CASE WHEN $2 THEN now() ELSE NULL END,updated_at=now() WHERE id=$1`,
         [id, data.data.suspended],
       );
-      if (!result.rows.length)
-        problem(404, "not_found", "Usuario no disponible.");
       if (data.data.suspended)
         await c.query("DELETE FROM sessions WHERE user_id=$1", [id]);
       await c.query(
@@ -136,7 +160,9 @@ export class AdminController {
     }
     return { status: "ok" };
   }
-  @Post("users/:id/subscription") async subscription(
+  @Post("users/:id/subscription")
+  @HttpCode(200)
+  async subscription(
     @Req() request: FastifyRequest,
     @Param("id") id: string,
     @Body() body: unknown,

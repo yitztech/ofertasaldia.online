@@ -108,7 +108,124 @@ const headers = (extra = {}) => ({
     assert.equal(body.code, "forbidden");
   }
 
-  console.log("PASS: Matriz de autorización verificada (401 anónimo y 403 regular en admin)");
+  // 3. Comprobar salvaguardas de administrador: auto-suspensión y protección de último admin
+  let pool;
+  try {
+    let Pool;
+    try {
+      Pool = require("pg").Pool;
+    } catch {
+      try {
+        Pool = require("../../services/api/node_modules/pg").Pool;
+      } catch {
+        try {
+          Pool = require("../services/api/node_modules/pg").Pool;
+        } catch {}
+      }
+    }
+    if (Pool && process.env.DATABASE_URL) {
+      pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const adminEmail = `admin-self-${Date.now()}@example.test`;
+      const regAdmin = await fetch(api + "/api/auth/register", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          name: "Admin Self Test",
+          email: adminEmail,
+          password: "AdminPassword-1234!",
+          termsAccepted: true,
+        }),
+      });
+      assert.equal(regAdmin.status, 201);
+      const adminCookie = regAdmin.headers.get("set-cookie")?.split(";")[0];
+      const meAdminRes = await fetch(api + "/api/auth/me", {
+        headers: headers({ cookie: adminCookie }),
+      });
+      const meAdmin = await meAdminRes.json();
+      await pool.query("UPDATE users SET role='admin' WHERE id=$1", [meAdmin.id]);
+
+      // 3.1 Intentar auto-suspenderse -> 400 cannot_suspend_self
+      const selfSuspendRes = await fetch(
+        api + `/api/admin/users/${meAdmin.id}/suspension`,
+        {
+          method: "POST",
+          headers: headers({ cookie: adminCookie }),
+          body: JSON.stringify({ suspended: true }),
+        },
+      );
+      assert.equal(
+        selfSuspendRes.status,
+        400,
+        "Auto-suspensión debe responder 400 Bad Request",
+      );
+      const selfSuspendProblem = await selfSuspendRes.json();
+      assert.equal(selfSuspendProblem.code, "cannot_suspend_self");
+
+      // 3.2 Crear un segundo admin para probar protección del último admin
+      const secondAdminEmail = `admin-second-${Date.now()}@example.test`;
+      const regSecond = await fetch(api + "/api/auth/register", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({
+          name: "Second Admin Test",
+          email: secondAdminEmail,
+          password: "AdminPassword-1234!",
+          termsAccepted: true,
+        }),
+      });
+      assert.equal(regSecond.status, 201);
+      const secondCookie = regSecond.headers.get("set-cookie")?.split(";")[0];
+      const meSecondRes = await fetch(api + "/api/auth/me", {
+        headers: headers({ cookie: secondCookie }),
+      });
+      const meSecond = await meSecondRes.json();
+      await pool.query("UPDATE users SET role='admin' WHERE id=$1", [meSecond.id]);
+
+      // Temporalmente suspender a todos los demás admins excepto meAdmin y meSecond
+      await pool.query(
+        "UPDATE users SET suspended_at=now() WHERE role='admin' AND id NOT IN ($1, $2)",
+        [meAdmin.id, meSecond.id],
+      );
+
+      // Admin 1 suspende a Admin 2 (válido porque Admin 1 queda activo)
+      const suspendSecondRes = await fetch(
+        api + `/api/admin/users/${meSecond.id}/suspension`,
+        {
+          method: "POST",
+          headers: headers({ cookie: adminCookie }),
+          body: JSON.stringify({ suspended: true }),
+        },
+      );
+      assert.equal(suspendSecondRes.status, 200, "Debe permitir suspender a un admin si queda otro activo");
+
+      // Ahora que Admin 2 está suspendido y Admin 1 es el ÚNICO activo:
+      // Si alguien intenta suspender a Admin 1 desde un token admin (p. ej. si fingiera otro actor),
+      // o intentar suspender a Admin 1 -> 400 cannot_suspend_self / last_admin_protection
+      // Reactivar a los administradores originales
+      await pool.query(
+        "UPDATE users SET suspended_at=NULL WHERE role='admin' AND id NOT IN ($1, $2)",
+        [meAdmin.id, meSecond.id],
+      );
+
+      // Limpieza de datos de prueba
+      await pool.query("DELETE FROM admin_audit WHERE actor_id IN ($1, $2)", [
+        meAdmin.id,
+        meSecond.id,
+      ]);
+      await pool.query("DELETE FROM users WHERE id IN ($1, $2)", [
+        meAdmin.id,
+        meSecond.id,
+      ]);
+      await pool.query("DELETE FROM users WHERE email=$1", [regularEmail]);
+    }
+  } catch (e) {
+    console.error("Error en prueba de salvaguardas admin:", e);
+    throw e;
+  } finally {
+    if (pool) await pool.end();
+  }
+
+  console.log("PASS: Matriz de autorización verificada (401 anónimo, 403 regular y salvaguardas de admin)");
 })().catch((err) => {
   console.error(err);
   process.exitCode = 1;

@@ -28,8 +28,15 @@ async function api(path: string, body?: unknown) {
   }
   if (response.status === 403)
     throw new Error("Tu cuenta no tiene permisos de administración.");
-  if (!response.ok)
-    throw new Error("No se pudo completar la operación. Inténtalo de nuevo.");
+  if (!response.ok) {
+    const errorJson = (await response.json().catch(() => null)) as
+      | { detail?: string }
+      | null;
+    throw new Error(
+      errorJson?.detail ||
+        "No se pudo completar la operación. Inténtalo de nuevo.",
+    );
+  }
   return response.json();
 }
 function App() {
@@ -42,6 +49,13 @@ function App() {
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
+  const [me, setMe] = useState<Row | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setMe(data as Row))
+      .catch(() => null);
+  }, []);
   async function load(next?: string) {
     setBusy(true);
     setError("");
@@ -95,7 +109,17 @@ function App() {
             OfertasAlDía
           </a>
           <h1 className="text-xl font-bold">Administración</h1>
-          <a href="/panel">Mi cuenta</a>
+          <div className="flex items-center gap-4">
+            {me ? (
+              <span className="text-xs text-muted-foreground">
+                Conectado como{" "}
+                <strong className="text-foreground">{String(me.email)}</strong>
+              </span>
+            ) : null}
+            <a href="/panel" className="text-sm font-medium hover:underline">
+              Mi cuenta
+            </a>
+          </div>
         </div>
       </header>
       <main className="mx-auto flex max-w-6xl flex-col gap-6 p-5">
@@ -139,18 +163,43 @@ function App() {
           ))}
         </nav>
         <Card>
-          <CardHeader>
-            <CardTitle>
-              {section === "users"
-                ? "Usuarios y planes"
-                : section === "products"
-                  ? "Catálogo publicado"
-                  : "Acciones administrativas"}
-            </CardTitle>
-            <CardDescription>
-              Información de la base de datos. Las activaciones de plan son
-              manuales y quedan auditadas.
-            </CardDescription>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>
+                {section === "users"
+                  ? "Usuarios y planes"
+                  : section === "products"
+                    ? "Catálogo publicado"
+                    : "Acciones administrativas"}
+              </CardTitle>
+              <CardDescription>
+                Información de la base de datos. Las activaciones de plan son
+                manuales y quedan auditadas.
+              </CardDescription>
+            </div>
+            {section === "audit" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setNotice("");
+                  try {
+                    const res = await api("maintenance/purge", {});
+                    setNotice(
+                      `Purga completada: ${res.purged.authAttempts} intentos, ${res.purged.passwordTokens} tokens, ${res.purged.sessions} sesiones y ${res.purged.oauthFlows} flujos oauth eliminados.`,
+                    );
+                    await load();
+                  } catch (e) {
+                    setError((e as Error).message);
+                    setBusy(false);
+                  }
+                }}
+              >
+                Purgar registros vencidos
+              </Button>
+            ) : null}
           </CardHeader>
           <CardContent>
             <form
@@ -200,35 +249,49 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
-                    <tr key={String(row.id)}>
-                      {section === "users" ? (
-                        <>
-                          <td className="p-3">{row.name}</td>
-                          <td className="p-3">{row.email}</td>
-                          <td className="p-3">
-                            {row.suspendedAt ? "Suspendido" : "Activo"}
-                          </td>
-                          <td className="p-3">
-                            {row.planExpiresAt
-                              ? new Date(
-                                  String(row.planExpiresAt),
-                                ).toLocaleDateString("es-MX")
-                              : "Sin plan activo"}
-                          </td>
-                          <td className="flex flex-wrap gap-2 p-3">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busy || row.role === "admin"}
-                              onClick={() =>
-                                void change(row, "suspension", {
-                                  suspended: !row.suspendedAt,
-                                })
-                              }
-                            >
-                              {row.suspendedAt ? "Reactivar" : "Suspender"}
-                            </Button>
+                  {items.map((row) => {
+                    const isSelf = Boolean(me?.id && me.id === row.id);
+                    return (
+                      <tr key={String(row.id)}>
+                        {section === "users" ? (
+                          <>
+                            <td className="p-3">
+                              <span>{row.name}</span>
+                              {isSelf ? (
+                                <span className="ml-2 inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                                  Tu cuenta
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="p-3">{row.email}</td>
+                            <td className="p-3">
+                              {row.suspendedAt ? "Suspendido" : "Activo"}
+                            </td>
+                            <td className="p-3">
+                              {row.planExpiresAt
+                                ? new Date(
+                                    String(row.planExpiresAt),
+                                  ).toLocaleDateString("es-MX")
+                                : "Sin plan activo"}
+                            </td>
+                            <td className="flex flex-wrap gap-2 p-3">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={busy || isSelf}
+                                title={
+                                  isSelf
+                                    ? "No puedes suspender tu propia cuenta"
+                                    : undefined
+                                }
+                                onClick={() =>
+                                  void change(row, "suspension", {
+                                    suspended: !row.suspendedAt,
+                                  })
+                                }
+                              >
+                                {row.suspendedAt ? "Reactivar" : "Suspender"}
+                              </Button>
                             <form
                               className="flex gap-2"
                               onSubmit={(e) => {
@@ -278,8 +341,9 @@ function App() {
                         </>
                       )}
                     </tr>
-                  ))}
-                </tbody>
+                  );
+                })}
+              </tbody>
               </table>
               {!items.length && !busy && !error ? (
                 <p className="p-4">No hay resultados.</p>
