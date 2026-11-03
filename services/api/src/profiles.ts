@@ -390,6 +390,96 @@ export class ProfilesService {
       ],
     };
   }
+
+  async getMyAnalytics(userId: string) {
+    // 1. Total clics y productos únicos en los últimos 30 días
+    const last30Res = await this.db.pool.query(
+      `SELECT count(*)::int AS clics,
+              count(DISTINCT product_id)::int AS "productosVistos"
+       FROM click_events
+       WHERE creator_id = $1 AND created_at >= now() - interval '30 days'`,
+      [userId],
+    );
+    const totalClics = last30Res.rows[0]?.clics ?? 0;
+    const productosVistos = last30Res.rows[0]?.productosVistos ?? 0;
+
+    // 2. Clics en el periodo previo (hace 30 a 60 días) para calcular variación
+    const prev30Res = await this.db.pool.query(
+      `SELECT count(*)::int AS clics
+       FROM click_events
+       WHERE creator_id = $1
+         AND created_at >= now() - interval '60 days'
+         AND created_at < now() - interval '30 days'`,
+      [userId],
+    );
+    const prevClics = prev30Res.rows[0]?.clics ?? 0;
+    const variacionPorcentaje =
+      prevClics > 0
+        ? Math.round(((totalClics - prevClics) / prevClics) * 100)
+        : totalClics > 0
+          ? 100
+          : 0;
+
+    // Ganancia estimada: comisión estimada en centavos por cada clic convertido (~$27.70 MXN por cada 10 clics)
+    const gananciaCentavos = Math.round((totalClics * 27700) / 10);
+
+    // 3. Serie diaria de clics para los últimos 30 días
+    const dailyRes = await this.db.pool.query(
+      `WITH days AS (
+         SELECT generate_series(
+           date_trunc('day', now() - interval '29 days'),
+           date_trunc('day', now()),
+           interval '1 day'
+         ) AS dia_fecha
+       )
+       SELECT
+         to_char(d.dia_fecha, 'YYYY-MM-DD') AS fecha,
+         COALESCE(c.conteo, 0)::int AS clics
+       FROM days d
+       LEFT JOIN (
+         SELECT
+           date_trunc('day', created_at) AS dia_fecha,
+           count(*)::int AS conteo
+         FROM click_events
+         WHERE creator_id = $1
+           AND created_at >= date_trunc('day', now() - interval '29 days')
+         GROUP BY 1
+       ) c ON c.dia_fecha = d.dia_fecha
+       ORDER BY d.dia_fecha ASC`,
+      [userId],
+    );
+
+    const dailyClicks = dailyRes.rows.map((row, idx) => ({
+      dia: idx + 1,
+      clics: row.clics,
+      fecha: row.fecha,
+    }));
+
+    // 4. Clics por producto
+    const prodRes = await this.db.pool.query(
+      `SELECT product_id AS "productId", count(*)::int AS clics
+       FROM click_events
+       WHERE creator_id = $1
+       GROUP BY product_id`,
+      [userId],
+    );
+
+    const productClicks: Record<string, number> = {};
+    for (const r of prodRes.rows) {
+      productClicks[r.productId] = r.clics;
+    }
+
+    return {
+      summary: {
+        clics: totalClics,
+        productosVistos,
+        gananciaCentavos,
+        variacionPorcentaje,
+      },
+      dailyClicks,
+      productClicks,
+    };
+  }
 }
 
 @Controller("api/profiles")
@@ -403,6 +493,12 @@ export class ProfilesController {
   async getMe(@Req() request: FastifyRequest) {
     const user = await this.auth.user(request);
     return this.profiles.getOrCreateMyProfile(user.id, user.name, user.email);
+  }
+
+  @Get("me/analytics")
+  async getMyAnalytics(@Req() request: FastifyRequest) {
+    const user = await this.auth.user(request);
+    return this.profiles.getMyAnalytics(user.id);
   }
 
   @Put("me")

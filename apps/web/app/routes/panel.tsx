@@ -77,6 +77,23 @@ export async function loader({ request }: Route.LoaderArgs) {
     // Fallback si la API de perfiles está temporalmente no disponible
   }
 
+  let metricasApi: {
+    summary: { clics: number; productosVistos: number; gananciaCentavos: number; variacionPorcentaje: number };
+    dailyClicks: Array<{ dia: number; clics: number; fecha: string }>;
+    productClicks: Record<string, number>;
+  } | null = null;
+  try {
+    const metRes = await fetch(`${process.env.API_URL ?? 'http://api:3001'}/api/profiles/me/analytics`, {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (metRes.ok) {
+      metricasApi = await metRes.json();
+    }
+  } catch {
+    // Fallback si la API de analítica no está disponible
+  }
+
   const defaultAfiliado = panel.afiliado();
   const afiliado: Afiliado = perfilApi
     ? {
@@ -95,16 +112,28 @@ export async function loader({ request }: Route.LoaderArgs) {
       }
     : defaultAfiliado;
 
+  const resumen = metricasApi?.summary ?? panel.resumen();
+  const clics = metricasApi?.dailyClicks?.length ? metricasApi.dailyClicks : panel.clics();
+  const productosBase = panel.productos();
+  const productos = productosBase.map((p) => {
+    const clicsCount = metricasApi?.productClicks?.[p.id] ?? p.clics;
+    return {
+      ...p,
+      clics: clicsCount,
+      enlace: `/ir/${p.id}?c=${encodeURIComponent(afiliado.alias)}&o=panel`,
+    };
+  });
+
   return {
     usuario,
     suscripcion,
     perfilApi,
     afiliado,
     conteos: panel.conteos(),
-    resumen: panel.resumen(),
-    clics: panel.clics(),
+    resumen,
+    clics,
     categoriasPrincipales: panel.categoriasPrincipales(),
-    productos: panel.productos(),
+    productos,
   };
 }
 

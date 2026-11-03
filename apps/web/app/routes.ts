@@ -15,5 +15,6 @@ export default [
   route("panel/articulos", "routes/panel-articulos.tsx"),
   route("panel/articulos/nuevo", "routes/panel-articulo-nuevo.tsx"),
   route("c/:alias", "routes/afiliado.tsx"),
+  route("ir/:id", "routes/ir.ts"),
   route("*", "routes/no-encontrado.tsx"),
 ] satisfies RouteConfig;
