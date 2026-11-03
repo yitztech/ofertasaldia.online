@@ -151,6 +151,65 @@ const migrations = [
   CREATE INDEX articles_status_published_idx ON articles(status, published_at DESC);
   CREATE INDEX articles_category_idx ON articles(category_id, published_at DESC);
   CREATE INDEX articles_product_idx ON articles(product_id);`,
+  `ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS external_id varchar(50),
+    ADD COLUMN IF NOT EXISTS affiliate_url varchar(2048),
+    ADD COLUMN IF NOT EXISTS original_price_cents bigint CHECK (original_price_cents >= 0),
+    ADD COLUMN IF NOT EXISTS discount_percentage integer CHECK (discount_percentage >= 0 AND discount_percentage <= 100),
+    ADD COLUMN IF NOT EXISTS rating numeric(3, 2) DEFAULT 4.8,
+    ADD COLUMN IF NOT EXISTS reviews_count integer DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS status varchar(30) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'closed')),
+    ADD COLUMN IF NOT EXISTS last_checked_at timestamptz DEFAULT now();
+  CREATE INDEX IF NOT EXISTS products_external_id_idx ON products(external_id);
+  CREATE INDEX IF NOT EXISTS products_status_idx ON products(status);
+  CREATE TABLE IF NOT EXISTS price_history (
+    id uuid PRIMARY KEY,
+    product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    price_cents bigint NOT NULL CHECK (price_cents >= 0),
+    recorded_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS price_history_product_idx ON price_history(product_id, recorded_at DESC);`,
+  `INSERT INTO products (
+    id, title, description, category_id, platform, price_cents, original_price_cents,
+    discount_percentage, currency, image_url, affiliate_url, external_id, rating, reviews_count, status, is_demo
+  ) VALUES
+    ('01930000-0000-7000-8000-000000000001', 'Samsung Galaxy A56 256 GB', 'Pantalla Super AMOLED de 120 Hz, cámara cuádruple de 50 MP y 6 años de actualizaciones.', 'electronica', 'mercadolibre', 749900, 899900, 17, 'MXN', '/img/productos/apple-watch.png', 'https://www.mercadolibre.com.mx/p/MLM1000004', 'MLM1000004', 4.8, 2341, 'active', false),
+    ('01930000-0000-7000-8000-000000000002', 'Xiaomi Redmi Note 15 Pro 256 GB', 'Cámara de 200 MP con estabilización óptica, carga ultra rápida de 120 W y pantalla AMOLED.', 'electronica', 'mercadolibre', 589900, 729900, 19, 'MXN', '/img/productos/audifonos-sony.png', 'https://www.mercadolibre.com.mx/p/MLM2100001', 'MLM2100001', 4.7, 1892, 'active', false),
+    ('01930000-0000-7000-8000-000000000003', 'Audífonos Sony WH-1000XM5 Cancelación de Ruido', 'Cancelación de ruido activa líder en la industria, sonido Hi-Res y batería de hasta 30 horas.', 'electronica', 'amazon', 499900, 729900, 32, 'MXN', '/img/productos/audifonos-sony.png', 'https://www.amazon.com.mx/dp/B09XS7JWHH', 'B09XS7JWHH', 4.8, 3120, 'active', false),
+    ('01930000-0000-7000-8000-000000000004', 'Freidora de Aire Oster 4L Digital', 'Cocina saludable con hasta 99.5% menos aceite, recubrimiento antiadherente DiamondForce.', 'hogar', 'mercadolibre', 119900, 199900, 40, 'MXN', '/img/productos/freidora-oster.png', 'https://www.mercadolibre.com.mx/p/MLM2300001', 'MLM2300001', 4.6, 918, 'active', false),
+    ('01930000-0000-7000-8000-000000000005', 'Cafetera Espresso De Longhi Dedica', 'Bomba de 15 bares, sistema de calentamiento rápido Thermoblock y acabado en acero inoxidable.', 'hogar', 'mercadolibre', 499900, 649900, 23, 'MXN', '/img/productos/freidora-oster.png', 'https://www.mercadolibre.com.mx/p/MLM2300002', 'MLM2300002', 4.9, 1420, 'active', false),
+    ('01930000-0000-7000-8000-000000000006', 'Tenis Nike Air Force 1 07 Blanco', 'Estilo clásico con amortiguación Nike Air para comodidad durante todo el día.', 'moda', 'mercadolibre', 189900, 249900, 24, 'MXN', '/img/productos/nike-force.png', 'https://www.mercadolibre.com.mx/p/MLM2400001', 'MLM2400001', 4.9, 3120, 'active', false),
+    ('01930000-0000-7000-8000-000000000007', 'Mochila Antirrobo Impermeable 15.6 Pulgadas', 'Puerto de carga USB integrado, compartimentos ocultos y tejido resistente a desgarros.', 'moda', 'mercadolibre', 44900, 69900, 36, 'MXN', '/img/productos/nike-force.png', 'https://www.mercadolibre.com.mx/p/MLM2400002', 'MLM2400002', 4.6, 780, 'active', false),
+    ('01930000-0000-7000-8000-000000000008', 'Tapete de Yoga Antideslizante Pro 6mm', 'Material TPE ecológico, líneas de alineación corporal y amortiguación de alta densidad.', 'deportes', 'mercadolibre', 39900, 59900, 33, 'MXN', '/img/productos/nike-force.png', 'https://www.mercadolibre.com.mx/p/MLM2500001', 'MLM2500001', 4.8, 654, 'active', false),
+    ('01930000-0000-7000-8000-000000000009', 'Mancuernas Ajustables 20 kg con Barra Conectora', 'Diseño versátil 2 en 1 que se convierte en barra olímpica, discos con recubrimiento protector.', 'deportes', 'mercadolibre', 169900, 229900, 26, 'MXN', '/img/productos/nike-force.png', 'https://www.mercadolibre.com.mx/p/MLM2500002', 'MLM2500002', 4.7, 430, 'active', false),
+    ('01930000-0000-7000-8000-000000000010', 'Taladro Percutor Inalámbrico 20V DeWalt', 'Motor Brushless sin escobillas para mayor autonomía y vida útil, incluye dos baterías y cargador.', 'herramientas', 'mercadolibre', 279900, 369900, 24, 'MXN', '/img/productos/freidora-oster.png', 'https://www.mercadolibre.com.mx/p/MLM2600001', 'MLM2600001', 4.9, 1105, 'active', false),
+    ('01930000-0000-7000-8000-000000000011', 'Serum Vitamina C Facial Antiedad Garnier', 'Fórmula con alta concentración de vitamina C, unifica el tono de la piel y reduce manchas.', 'belleza', 'mercadolibre', 18900, 26900, 30, 'MXN', '/img/productos/apple-watch.png', 'https://www.mercadolibre.com.mx/p/MLM2700001', 'MLM2700001', 4.7, 2980, 'active', false),
+    ('01930000-0000-7000-8000-000000000012', 'Silla Ergonómica de Oficina con Soporte Lumbar', 'Malla transpirable, soporte lumbar adaptable y reposabrazos ajustables 3D.', 'oficina', 'mercadolibre', 219900, 319900, 31, 'MXN', '/img/productos/freidora-oster.png', 'https://www.mercadolibre.com.mx/p/MLM2800001', 'MLM2800001', 4.8, 1450, 'active', false)
+  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO price_history (id, product_id, price_cents, recorded_at)
+  SELECT
+    ('01930000-0000-7000-8000-10000000' || lpad(row_number() OVER ()::text, 4, '0'))::uuid,
+    p.id,
+    p.original_price_cents,
+    now() - interval '90 days'
+  FROM products p WHERE p.original_price_cents IS NOT NULL
+  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO price_history (id, product_id, price_cents, recorded_at)
+  SELECT
+    ('01930000-0000-7000-8000-20000000' || lpad(row_number() OVER ()::text, 4, '0'))::uuid,
+    p.id,
+    p.price_cents + (p.original_price_cents - p.price_cents) / 2,
+    now() - interval '30 days'
+  FROM products p WHERE p.original_price_cents IS NOT NULL
+  ON CONFLICT (id) DO NOTHING;
+  INSERT INTO price_history (id, product_id, price_cents, recorded_at)
+  SELECT
+    ('01930000-0000-7000-8000-30000000' || lpad(row_number() OVER ()::text, 4, '0'))::uuid,
+    p.id,
+    p.price_cents,
+    now()
+  FROM products p
+  ON CONFLICT (id) DO NOTHING;`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {
