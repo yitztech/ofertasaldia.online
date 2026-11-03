@@ -133,6 +133,28 @@ function mail(email, subjectFilter = "") {
     await page.getByText("¡Suscripción completada con éxito!").waitFor();
     checks.push("flujo de suscripción completado");
 
+    // Publicación de review en el blog con editor estilo WordPress (usuario Pro)
+    await page.goto(root + "/panel/articulos");
+    await page.getByRole("heading", { name: "Mis reseñas y artículos" }).waitFor();
+    await page.getByRole("link", { name: "Escribir nueva reseña" }).click();
+    await page.waitForURL("**/panel/articulos/nuevo");
+    const reviewTitle = `Review E2E: Auriculares Sony ${Date.now()}`;
+    await page.getByPlaceholder("Añade un título atractivo para tu review...").fill(reviewTitle);
+    await page.getByPlaceholder("Escribe una introducción breve que resuma tu veredicto del producto...").fill("Una reseña a fondo de los mejores audífonos con cancelación de ruido activa.");
+    await page.locator("#contenido-articulo").fill("## Introducción\nProbamos a fondo los auriculares durante 3 semanas.\n\n> Veredicto: Totalmente recomendados para viajes y trabajo diario.");
+    await page.getByRole("button", { name: "Publicar reseña", exact: true }).first().click();
+    await page.waitForURL((url) => url.pathname.startsWith("/blog/review-e2e-auriculares-sony-"));
+    await page.getByRole("heading", { name: reviewTitle }).waitFor();
+    await page.locator("#contenido").getByText("María Pérez").waitFor();
+    await page.getByText("Verificado").waitFor();
+    checks.push("publicación de reseña con editor estilo wordpress");
+
+    // Verificar en el feed público del blog
+    await page.goto(root + "/blog");
+    await page.getByRole("heading", { name: /Análisis honestos/i }).waitFor();
+    await page.getByText(reviewTitle).waitFor();
+    checks.push("feed público del blog");
+
     await page.goto(root + "/admin/");
     await page
       .getByRole("alert")

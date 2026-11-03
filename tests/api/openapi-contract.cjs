@@ -52,6 +52,7 @@ const api = process.env.API_URL || "http://127.0.0.1:3001";
     "/api/payments/subscription",
     "/api/payments/checkout-session",
     "/api/public/v1/webhooks/payments",
+    "/api/articles",
   ];
 
   for (const p of expectedPaths) {

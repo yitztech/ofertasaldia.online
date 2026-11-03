@@ -23,6 +23,7 @@ interface Elemento {
 const principales: Elemento[] = [
   { texto: "Mi perfil", icono: UserIcon, activo: true },
   { texto: "Mis productos", icono: PackageIcon },
+  { texto: "Mis reseñas y blog", icono: BookOpenIcon, enlace: "/panel/articulos" },
   { texto: "Estadísticas", icono: ChartColumnIcon },
   { texto: "Planes y suscripción", icono: CreditCardIcon, enlace: "/planes" },
   { texto: "Mis colecciones", icono: BookmarkIcon },

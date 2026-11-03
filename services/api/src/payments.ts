@@ -239,6 +239,22 @@ export class PaymentsService {
 
     // Modo simulación offline / CI (AGENTS §35)
     const sessionId = `cs_test_${uuidv7()}`;
+    const startsAt = new Date();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.db.pool.query(
+      `INSERT INTO subscriptions (
+        id, user_id, plan_id, starts_at, expires_at, provider, provider_subscription_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        uuidv7(),
+        user.id,
+        planId,
+        startsAt,
+        expiresAt,
+        "stripe_simulated",
+        sessionId,
+      ],
+    );
     const url = `${process.env.SITE_URL || "http://localhost:8080"}/panel?pago=simulado&session_id=${sessionId}`;
     return { url, sessionId };
   }
