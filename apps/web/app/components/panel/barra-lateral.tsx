@@ -1,6 +1,7 @@
 import {
   BookmarkIcon,
   ChartColumnIcon,
+  CreditCardIcon,
   HeartIcon,
   PackageIcon,
   SettingsIcon,
@@ -16,12 +17,14 @@ interface Elemento {
   texto: string;
   icono: LucideIcon;
   activo?: boolean;
+  enlace?: string;
 }
 
 const principales: Elemento[] = [
   { texto: "Mi perfil", icono: UserIcon, activo: true },
   { texto: "Mis productos", icono: PackageIcon },
   { texto: "Estadísticas", icono: ChartColumnIcon },
+  { texto: "Planes y suscripción", icono: CreditCardIcon, enlace: "/planes" },
   { texto: "Mis colecciones", icono: BookmarkIcon },
   { texto: "Favoritos", icono: HeartIcon },
 ];
@@ -39,6 +42,14 @@ function Item({ e }: { e: Elemento }) {
   if (e.activo) {
     return (
       <Link to="/panel" aria-current="page" className={cn(base, "bg-lila font-semibold text-primary")}>
+        <Icono aria-hidden="true" className="size-5" />
+        {e.texto}
+      </Link>
+    );
+  }
+  if (e.enlace) {
+    return (
+      <Link to={e.enlace} className={cn(base, "text-foreground hover:bg-acento transition-colors")}>
         <Icono aria-hidden="true" className="size-5" />
         {e.texto}
       </Link>

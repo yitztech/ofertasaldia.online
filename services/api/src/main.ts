@@ -22,6 +22,7 @@ import { AuthController, AuthService } from "./auth.js";
 import { MailService } from "./mail.js";
 import { MaintenanceService } from "./maintenance.js";
 import { OAuthController } from "./oauth.js";
+import { PaymentsController, PaymentsService } from "./payments.js";
 
 @Controller()
 class HealthController {
@@ -54,8 +55,15 @@ class HealthController {
     AuthController,
     AdminController,
     OAuthController,
+    PaymentsController,
   ],
-  providers: [Database, AuthService, MailService, MaintenanceService],
+  providers: [
+    Database,
+    AuthService,
+    MailService,
+    MaintenanceService,
+    PaymentsService,
+  ],
 })
 class AppModule {}
 
@@ -94,7 +102,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 1_048_576 }),
-    { logger: new ConsoleLogger({ json: true }) },
+    { rawBody: true, logger: new ConsoleLogger({ json: true }) },
   );
   app.useGlobalFilters(new Problems());
   app

@@ -1,8 +1,10 @@
 import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Badge } from "~/components/ui/badge";
+import { Card } from "~/components/ui/card";
 import { useMemo, useState } from "react";
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { CrownIcon, PlusIcon, SearchIcon, SparklesIcon } from "lucide-react";
 import { Suspense } from "react";
-import { Await, Link, redirect } from "react-router";
+import { Await, Link, redirect, useSearchParams } from "react-router";
 import type { Route } from "./+types/panel";
 import { CabeceraAfiliado } from "~/components/afiliado/cabecera-afiliado";
 import { Pestanas } from "~/components/afiliado/pestanas";
@@ -25,6 +27,7 @@ import type { CategoriaId, EstadoProducto, ProductoPanel } from "~/datos/tipos";
 import { limites } from "~/lib/limites";
 import { buscarOfertas, ordenarOfertas, type Orden } from "~/lib/ofertas";
 import { panel } from "~/servicios/catalogo";
+import { obtenerSuscripcion } from "~/servicios/payments.server";
 import { cn } from "~/utils";
 
 export function meta() {
@@ -42,8 +45,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (response.status === 401) throw redirect('/entrar');
   if (!response.ok) throw new Response('Servicio temporalmente no disponible', { status: 503 });
   const usuario = (await response.json()) as { id: string; name: string; email: string; role: string; verifiedAt: string | null };
+  const suscripcion = await obtenerSuscripcion(request);
   return {
     usuario,
+    suscripcion,
     afiliado: panel.afiliado(),
     conteos: panel.conteos(),
     resumen: panel.resumen(),
@@ -181,8 +186,12 @@ function ListaProductos({ productos, conteos }: { productos: ProductoPanel[]; co
 }
 
 export default function Panel({ loaderData }: Route.ComponentProps) {
-  const { usuario, afiliado, conteos, resumen, clics, categoriasPrincipales, productos } = loaderData;
+  const { usuario, suscripcion, afiliado, conteos, resumen, clics, categoriasPrincipales, productos } = loaderData;
   const [pestana, setPestana] = useState("productos");
+  const [searchParams] = useSearchParams();
+  const pagoStatus = searchParams.get("pago");
+  const esProActivo = suscripcion?.status === "active" && suscripcion?.planId === "pro";
+
   return (
     <>
       <Cabecera
@@ -197,6 +206,16 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
       <main id="contenido" className="contenedor grid gap-4 py-4 lg:grid-cols-[14rem_1fr] lg:gap-6">
         <BarraLateralPanel />
         <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_22rem]">
+          {pagoStatus === "exitoso" || pagoStatus === "simulado" ? (
+            <Alert variant="success" role="region" aria-label="Aviso de suscripción" className="border-violeta/50 bg-violeta/10 text-foreground xl:col-span-2">
+              <div className="flex items-center gap-3">
+                <CrownIcon className="size-5 text-corona" aria-hidden="true" />
+                <AlertDescription className="font-medium">
+                  ¡Suscripción completada con éxito! Tu <strong>Plan Creador Pro</strong> ya se encuentra activo.
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : null}
           {!usuario?.verifiedAt ? (
             <Alert variant="default" role="region" aria-label="Aviso de verificación de correo" className="border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-200 xl:col-span-2">
               <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
@@ -225,6 +244,33 @@ export default function Panel({ loaderData }: Route.ComponentProps) {
             </Pestanas>
           </div>
           <aside aria-label="Resumen" className="flex min-w-0 flex-col gap-4 xl:pt-0">
+            {/* Tarjeta de estado de suscripción */}
+            <Card className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-tarjeta">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tu suscripción</span>
+                {esProActivo ? (
+                  <Badge variant="default" className="bg-violeta text-white">PRO</Badge>
+                ) : (
+                  <Badge variant="outline">BÁSICO</Badge>
+                )}
+              </div>
+              <div>
+                <p className="m-0 text-base font-extrabold text-foreground">
+                  {esProActivo ? "Plan Creador Pro" : "Plan Básico (Gratis)"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {esProActivo
+                    ? `Activo hasta el ${suscripcion?.expiresAt ? new Date(suscripcion.expiresAt).toLocaleDateString("es-MX") : "próximo ciclo"}`
+                    : "Límite de 10 productos y analítica básica."}
+                </p>
+              </div>
+              <Button asChild size="sm" variant={esProActivo ? "outline" : "violeta"} className="w-full">
+                <Link to="/planes">
+                  {esProActivo ? "Ver detalles del plan" : "Mejorar a Plan Pro"}
+                </Link>
+              </Button>
+            </Card>
+
             <EnlaceAfiliado url={urlPerfil(afiliado.alias)} />
             <ResumenMes resumen={resumen} />
             <GraficaClics serie={clics} />

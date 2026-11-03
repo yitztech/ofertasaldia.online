@@ -27,9 +27,9 @@ const suites = [
   },
   {
     name: "api",
-    description: "Pruebas de API contra stack activo (hardening, oauth, authorization, proxy, maintenance, verification)",
+    description: "Pruebas de API contra stack activo (hardening, oauth, authorization, proxy, maintenance, verification, payments)",
     command: "node",
-    args: ["-e", "require('./tests/api/authorization.cjs'); require('./tests/api/maintenance.cjs'); require('./tests/api/verification.cjs');"],
+    args: ["-e", "require('./tests/api/authorization.cjs'); require('./tests/api/maintenance.cjs'); require('./tests/api/verification.cjs'); require('./tests/api/payments.cjs');"],
   },
 ];
 
