@@ -235,6 +235,33 @@ const migrations = [
     '[{"red":"youtube","url":"https://www.youtube.com"},{"red":"instagram","url":"https://www.instagram.com"},{"red":"tiktok","url":"https://www.tiktok.com"},{"red":"enlace","url":"https://ofertasaldia.online/c/carlos-tech"}]'::jsonb
   )
   ON CONFLICT (user_id) DO NOTHING;`,
+  `CREATE TABLE click_events (
+    id uuid PRIMARY KEY,
+    product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    creator_id uuid REFERENCES users(id) ON DELETE SET NULL,
+    origin varchar(50),
+    created_at timestamptz NOT NULL DEFAULT now()
+  );
+  CREATE INDEX click_events_product_idx ON click_events(product_id, created_at DESC);
+  CREATE INDEX click_events_creator_idx ON click_events(creator_id, created_at DESC);
+  CREATE INDEX click_events_created_at_idx ON click_events(created_at DESC);
+  INSERT INTO click_events (id, product_id, creator_id, origin, created_at)
+  SELECT
+    ('01930000-0000-7000-8000-40000000' || lpad(s.n::text, 4, '0'))::uuid,
+    p.id,
+    '01930000-0000-7000-8000-000000000099'::uuid,
+    CASE (s.n % 4)
+      WHEN 0 THEN 'portada'
+      WHEN 1 THEN 'ficha'
+      WHEN 2 THEN 'pagina'
+      ELSE 'articulo'
+    END,
+    now() - (interval '1 day' * (s.n % 30))
+  FROM generate_series(1, 120) AS s(n)
+  CROSS JOIN LATERAL (
+    SELECT id FROM products WHERE status = 'active' ORDER BY id LIMIT 1 OFFSET (s.n % 12)
+  ) AS p
+  ON CONFLICT (id) DO NOTHING;`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {

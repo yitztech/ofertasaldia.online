@@ -26,7 +26,11 @@ interface ApiProduct {
   isDemo?: boolean;
 }
 
-function transformarProducto(p: ApiProduct): Oferta {
+function transformarProducto(
+  p: ApiProduct,
+  origen: string = "portada",
+  creador?: string,
+): Oferta {
   const precioCentavos = Number(p.priceCents);
   const precioAnteriorCentavos = p.originalPriceCents
     ? Number(p.originalPriceCents)
@@ -40,6 +44,12 @@ function transformarProducto(p: ApiProduct): Oferta {
         )
       : undefined);
 
+  const query = new URLSearchParams();
+  if (origen) query.set("o", origen);
+  if (creador) query.set("c", creador);
+  const qStr = query.toString();
+  const enlace = `/ir/${p.id}${qStr ? `?${qStr}` : ""}`;
+
   return {
     id: p.id,
     nombre: p.title,
@@ -52,11 +62,7 @@ function transformarProducto(p: ApiProduct): Oferta {
     tono: (descuento ?? 0) >= 25 ? "descuento" : "oferta",
     valoracion: p.rating ?? 4.8,
     resenas: p.reviewsCount ?? 150,
-    enlace:
-      p.affiliateUrl ||
-      (p.platform === "mercadolibre"
-        ? "https://www.mercadolibre.com.mx"
-        : "https://www.amazon.com.mx"),
+    enlace,
   };
 }
 
@@ -102,15 +108,15 @@ export const catalogo = {
       if (res.ok) {
         const data = (await res.json()) as { items: ApiProduct[] };
         if (Array.isArray(data.items) && data.items.length > 0) {
-          return data.items.map(transformarProducto);
+          return data.items.map((p) => transformarProducto(p, "portada"));
         }
       }
     } catch {
       // Fallback a ofertas demo en caso de no disponibilidad
     }
-    return buscarOfertas(ofertasDestacadas, texto, categoria).filter(
-      (o) => !plataforma || o.plataforma === plataforma,
-    );
+    return buscarOfertas(ofertasDestacadas, texto, categoria)
+      .filter((o) => !plataforma || o.plataforma === plataforma)
+      .map((o) => ({ ...o, enlace: `/ir/${o.id}?o=portada` }));
   },
 
   coleccionesPopulares: async () => coleccionesPopulares,
@@ -201,8 +207,13 @@ export const afiliados = {
           };
           const ofertas =
             Array.isArray(data.products) && data.products.length > 0
-              ? data.products.map(transformarProducto)
-              : ofertasDeCarlos;
+              ? data.products.map((p) =>
+                  transformarProducto(p, "pagina", data.profile.alias),
+                )
+              : ofertasDeCarlos.map((o) => ({
+                  ...o,
+                  enlace: `/ir/${o.id}?c=${encodeURIComponent(data.profile.alias)}&o=pagina`,
+                }));
           const colecciones =
             Array.isArray(data.collections) && data.collections.length > 0
               ? data.collections
@@ -217,7 +228,10 @@ export const afiliados = {
     if (alias === carlos.alias) {
       return {
         afiliado: carlos,
-        ofertas: ofertasDeCarlos,
+        ofertas: ofertasDeCarlos.map((o) => ({
+          ...o,
+          enlace: `/ir/${o.id}?c=${encodeURIComponent(carlos.alias)}&o=pagina`,
+        })),
         colecciones: coleccionesDeCarlos,
       };
     }

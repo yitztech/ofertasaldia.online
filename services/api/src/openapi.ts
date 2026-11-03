@@ -1124,6 +1124,77 @@ export const openApiSpec = {
         },
       },
     },
+    "/api/profiles/me/analytics": {
+      get: {
+        summary: "Obtener métricas y estadísticas del creador autenticado para el panel",
+        operationId: "getMyAnalytics",
+        responses: {
+          "200": {
+            description: "Estadísticas de clics y resumen de conversión del creador",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["summary", "dailyClicks", "productClicks"],
+                  properties: {
+                    summary: {
+                      type: "object",
+                      required: ["clics", "productosVistos", "gananciaCentavos", "variacionPorcentaje"],
+                      properties: {
+                        clics: { type: "integer" },
+                        productosVistos: { type: "integer" },
+                        gananciaCentavos: { type: "integer" },
+                        variacionPorcentaje: { type: "number" },
+                      },
+                    },
+                    dailyClicks: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["dia", "clics"],
+                        properties: {
+                          dia: { type: "integer" },
+                          clics: { type: "integer" },
+                          fecha: { type: "string" },
+                        },
+                      },
+                    },
+                    productClicks: {
+                      type: "object",
+                      additionalProperties: { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+        },
+      },
+    },
+    "/api/redirect/{id}": {
+      get: {
+        summary: "Redirección con atribución y registro de clic de afiliado",
+        operationId: "redirectToAffiliate",
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          { name: "o", in: "query", required: false, schema: { type: "string", enum: ["ficha", "portada", "pagina", "articulo", "correo", "busqueda", "panel"] } },
+          { name: "c", in: "query", required: false, schema: { type: "string", maxLength: 50 } },
+        ],
+        responses: {
+          "302": {
+            description: "Redirección inmediata a la tienda asociada (Amazon o Mercado Libre)",
+            headers: {
+              Location: { schema: { type: "string" }, description: "URL de destino con etiquetas de afiliado" },
+              "Cache-Control": { schema: { type: "string", example: "no-store" } },
+              "X-Robots-Tag": { schema: { type: "string", example: "noindex, nofollow" } },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFound" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+    },
   },
   components: {
     schemas: {
