@@ -213,13 +213,13 @@ const migrations = [
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links jsonb NOT NULL DEFAULT '[]'::jsonb;
   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS accent_color varchar(20) NOT NULL DEFAULT '#4338ca';
   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cover_url varchar(2048);
-  INSERT INTO users (id, name, email, password_hash, is_admin, verified_at)
+  INSERT INTO users (id, name, email, password_hash, role, verified_at)
   VALUES (
     '01930000-0000-7000-8000-000000000099',
     'Carlos M.',
     'carlos@ofertasaldia.online',
     '$2b$12$e/cOaOqjW.8K9b9N2lZ8s.iJ8t7K5y6n1g3q4w5e6r7t8y9u0i1o2',
-    false,
+    'user',
     now()
   )
   ON CONFLICT (id) DO NOTHING;
