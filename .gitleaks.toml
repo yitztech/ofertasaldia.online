@@ -1,0 +1,14 @@
+# Gitleaks configuration
+# Omitir credenciales simuladas y fixtures en rutas y archivos de pruebas
+
+[allowlist]
+description = "Omitir credenciales simuladas en carpetas y archivos de pruebas"
+paths = [
+  '''(?i)(^|/)tests/''',
+  '''(?i)(^|/)fixtures/''',
+  '''(?i)(^|/)__tests__/''',
+  '''(?i)(^|/)testdata/''',
+  '''(?i)(^|/)test/''',
+  '''(?i)\.(test|spec)\.[jt]sx?$''',
+  '''(?i)_test\.go$''',
+]
