@@ -257,6 +257,14 @@ function signPayload(payloadString, secret) {
     const dbModulePath = path.resolve(process.cwd(), "dist/database.js");
     const paymentsModulePath = path.resolve(process.cwd(), "dist/payments.js");
     if (fs.existsSync(dbModulePath) && fs.existsSync(paymentsModulePath)) {
+      if (!process.env.DATABASE_URL && process.env.POSTGRES_HOST) {
+        const dbUrl = new URL("postgres://localhost");
+        dbUrl.hostname = process.env.POSTGRES_HOST;
+        dbUrl.pathname = "/" + process.env.POSTGRES_DB;
+        dbUrl.username = process.env.POSTGRES_APP_USER;
+        dbUrl.password = process.env.APP_DATABASE_PASSWORD;
+        process.env.DATABASE_URL = dbUrl.href;
+      }
       const { Database } = require(dbModulePath);
       const { PaymentsService } = require(paymentsModulePath);
       const db = new Database();
