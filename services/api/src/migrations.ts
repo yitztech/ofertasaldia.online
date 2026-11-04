@@ -310,6 +310,11 @@ const migrations = [
   SET coupon_code = 'MODA10',
       coupon_description = '10% adicional en calzado deportivo seleccionado'
   WHERE id = '01930000-0000-7000-8000-000000000006' AND coupon_code IS NULL;`,
+  `UPDATE subscriptions
+  SET revoked_at = now(),
+      updated_at = now()
+  WHERE provider = 'stripe_simulated'
+    AND revoked_at IS NULL;`,
 ];
 
 export async function migrate(pool: Pool): Promise<void> {

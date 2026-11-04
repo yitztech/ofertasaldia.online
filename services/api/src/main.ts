@@ -111,6 +111,15 @@ async function bootstrap() {
     )
       throw new Error(`Configura ambas variables OAuth de ${provider}`);
   }
+  if (
+    process.env.NODE_ENV === "production" &&
+    Boolean(process.env.STRIPE_SECRET_KEY) !==
+      Boolean(process.env.STRIPE_WEBHOOK_SECRET)
+  ) {
+    throw new Error(
+      "Configura ambas variables de Stripe (STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET)",
+    );
+  }
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 1_048_576 }),
