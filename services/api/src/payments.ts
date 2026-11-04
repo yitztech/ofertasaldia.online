@@ -118,6 +118,7 @@ export class PaymentsService {
   }
 
   async getSubscription(userId: string) {
+    const isProduction = process.env.NODE_ENV === "production";
     const result = await this.db.pool.query(
       `SELECT
         id,
@@ -128,10 +129,14 @@ export class PaymentsService {
         provider,
         provider_subscription_id AS "providerSubscriptionId"
       FROM subscriptions
-      WHERE user_id = $1 AND starts_at <= now() AND expires_at > now() AND revoked_at IS NULL
+      WHERE user_id = $1
+        AND starts_at <= now()
+        AND expires_at > now()
+        AND revoked_at IS NULL
+        AND ($2::boolean IS FALSE OR provider IS DISTINCT FROM 'stripe_simulated')
       ORDER BY expires_at DESC
       LIMIT 1`,
-      [userId],
+      [userId, isProduction],
     );
 
     const sub = result.rows[0];
@@ -285,6 +290,13 @@ export class PaymentsService {
     planId: "pro",
     couponCode?: string,
   ) {
+    const isProduction = process.env.NODE_ENV === "production";
+    const secretKey = process.env.STRIPE_SECRET_KEY?.trim() || "";
+    const isConfigured =
+      secretKey.length > 0 &&
+      !secretKey.startsWith("mock") &&
+      !secretKey.startsWith("test");
+
     const couponInfo =
       couponCode && couponCode.trim().length > 0
         ? await this.validateCoupon(couponCode, planId)
@@ -356,11 +368,13 @@ export class PaymentsService {
       };
     }
 
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    const isConfigured =
-      Boolean(secretKey) &&
-      !secretKey?.startsWith("mock") &&
-      !secretKey?.startsWith("test");
+    if (isProduction && !isConfigured) {
+      problem(
+        503,
+        "payment_unavailable",
+        "El servicio de pagos no está configurado.",
+      );
+    }
 
     if (isConfigured && secretKey) {
       // 1. Obtener o registrar cliente de Stripe
@@ -456,7 +470,16 @@ export class PaymentsService {
       };
     }
 
-    // Modo simulación offline / CI (AGENTS §35)
+    // En producción el modo simulado está estrictamente desactivado
+    if (isProduction) {
+      problem(
+        503,
+        "payment_unavailable",
+        "El servicio de pagos no está configurado.",
+      );
+    }
+
+    // Modo simulación solo en desarrollo local / E2E (NODE_ENV !== 'production')
     const sessionId = `cs_test_${uuidv7()}`;
     const startsAt = new Date();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -522,8 +545,14 @@ export class PaymentsService {
     signatureHeader: string,
     eventPayload: any,
   ) {
-    const webhookSecret =
-      process.env.STRIPE_WEBHOOK_SECRET || "whsec_test_local_secret";
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || "";
+    if (!webhookSecret) {
+      problem(
+        503,
+        "payment_unavailable",
+        "El webhook de pagos no está configurado.",
+      );
+    }
     const isValid = verifyStripeSignature(
       rawBody,
       signatureHeader,

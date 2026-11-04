@@ -35,11 +35,13 @@ services:
       dockerfile: services/api/Dockerfile
     environment:
       DATABASE_URL: postgres://ofertas:development@postgres:5432/ofertas
-      NODE_ENV: development
+      NODE_ENV: ${API_NODE_ENV:-development}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
       APPLE_CLIENT_SECRET: ${APPLE_CLIENT_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET-whsec_dev_local_only}
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
       MAIL_FROM: no-reply@ofertasaldia.local

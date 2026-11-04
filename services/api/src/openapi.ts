@@ -1149,6 +1149,7 @@ export const openApiSpec = {
           "403": { $ref: "#/components/responses/Forbidden" },
           "404": { $ref: "#/components/responses/NotFound" },
           "422": { $ref: "#/components/responses/ValidationError" },
+          "503": { $ref: "#/components/responses/ServiceUnavailable" },
         },
       },
     },
@@ -1173,6 +1174,7 @@ export const openApiSpec = {
             },
           },
           "400": { $ref: "#/components/responses/BadRequest" },
+          "503": { $ref: "#/components/responses/ServiceUnavailable" },
         },
       },
     },
@@ -1900,6 +1902,12 @@ export const openApiSpec = {
             description: "Segundos de espera recomendados",
           },
         },
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/ProblemDetails" } },
+        },
+      },
+      ServiceUnavailable: {
+        description: "Servicio o integración externa no disponible o no configurada (RFC 9457)",
         content: {
           "application/problem+json": { schema: { $ref: "#/components/schemas/ProblemDetails" } },
         },
